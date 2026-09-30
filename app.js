@@ -39,7 +39,8 @@ const el = {
 
 let D = null;          // forests.json 전체
 let F = [];            // D.휴양림
-let NORM = [];         // 검색용 정규화 문자열
+let NORM = [];         // 검색용 정규화 문자열 (이름·별칭·지역·주소)
+let NAME = [];         // 이름·별칭만. 초성 인덱스의 원본
 let CHO = null;        // 초성 인덱스 (처음 필요할 때 만든다)
 let results = [];      // 필터 결과 — 인덱스 배열
 let shown = 0;
@@ -169,9 +170,13 @@ const CHO_TABLE = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','
 function norm(s) { return (s || '').toLowerCase().replace(/\s+/g, ''); }
 function isChosung(s) { return /^[ㄱ-ㅎ]+$/.test(s); }
 
-/** 초성 인덱스는 초성 검색을 처음 쓸 때만 만든다. 평소엔 만들 이유가 없다. */
+/** 초성 인덱스는 초성 검색을 처음 쓸 때만 만든다. 평소엔 만들 이유가 없다.
+
+    주소가 아니라 이름만 대상으로 삼는다. 주소까지 넣으면 띄어쓰기를 지운 자리에서
+    단어 경계를 넘는 가짜 매치가 생긴다 — '강원특별자치도 강릉시' 가 '도강릉' 이 되어
+    ㄷㄱㄹ 로 검색한 대관령과 함께 걸려 나온다. */
 function buildChosung() {
-  CHO = NORM.map((s) => {
+  CHO = NAME.map((s) => {
     let out = '';
     for (const ch of s) {
       const c = ch.charCodeAt(0) - 0xac00;
@@ -622,6 +627,7 @@ function init() {
       D = data;
       F = D.휴양림;
       NORM = F.map((f) => norm(`${f.이름} ${f.별칭} ${f.시도} ${f.시군구} ${f.주소}`));
+      NAME = F.map((f) => norm(`${f.이름} ${f.별칭}`));
 
       const 휴양림수 = F.filter((f) => f.구분 === 0).length;
       el.headMeta.textContent =

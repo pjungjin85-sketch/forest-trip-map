@@ -1,0 +1,14 @@
+{
+  "name": "전국 자연휴양림 한눈에",
+  "short_name": "자연휴양림",
+  "description": "전국 자연휴양림을 지도와 목록으로. 예약 방식과 다음 오픈 일정, 산림청 공식 경쟁률, 블로그·카페 인기도를 함께 봅니다.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#22aa86",
+  "theme_color": "#22aa86",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

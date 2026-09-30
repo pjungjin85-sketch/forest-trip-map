@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>전국 자연휴양림 한눈에 — 예약 일정·경쟁률·인기도</title>
+<meta name="description" content="전국 자연휴양림을 지도와 목록으로 한 번에. 선착순인지 추첨인지, 다음 예약 오픈이 언제인지, 산림청 공식 경쟁률과 블로그·카페 언급량까지 함께 봅니다.">
+<meta name="theme-color" content="#22aa86">
+<link rel="icon" type="image/png" sizes="32x32" href="icon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<a class="skip" href="#list">휴양림 목록으로 건너뛰기</a>
+
+<header class="masthead">
+  <div class="masthead__inner">
+    <p class="eyebrow">숲나들e 예약정보 모아보기 <span class="eyebrow__tag">비공식</span></p>
+    <h1 class="title">전국 자연휴양림<br><em>한눈에</em></h1>
+    <p class="masthead__meta" id="headMeta">자료를 불러오는 중</p>
+  </div>
+</header>
+
+<section class="sched" aria-labelledby="schedTitle">
+  <div class="sched__inner">
+    <h2 class="sched__title" id="schedTitle">다음 예약 일정</h2>
+    <div class="sched__cards" id="schedCards"></div>
+    <p class="sched__note">국립자연휴양림 공통 규칙입니다. 공립·사립은 휴양림마다 달라 각 휴양림 안내를 확인하세요.</p>
+  </div>
+</section>
+
+<div class="controls">
+  <div class="controls__inner">
+    <div class="search">
+      <svg class="search__icon" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="M16.5 16.5 21 21"/>
+      </svg>
+      <input id="q" type="search" inputmode="search" autocomplete="off"
+             placeholder="휴양림·지역 이름 (초성도 됩니다)" aria-label="휴양림 이름 검색">
+      <button id="clear" class="search__clear" type="button" aria-label="검색어 지우기" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+
+    <p class="tally" aria-live="polite">
+      <span class="tally__num" id="hit">—</span><span class="tally__unit">곳</span>
+      <span class="tally__of" id="scope">데이터를 불러오는 중</span>
+    </p>
+
+    <div class="filters">
+      <div class="chips" id="kindChips" role="group" aria-label="시설 구분"></div>
+      <div class="chips" id="areaChips" role="group" aria-label="권역 선택"></div>
+      <div class="chips" id="typeChips" role="group" aria-label="운영 주체 선택"></div>
+      <div class="chips" id="resvChips" role="group" aria-label="예약 방식 선택"></div>
+      <div class="chips chips--sub" id="tagChips" role="group" aria-label="특징 선택"></div>
+      <div class="chips chips--sort" id="sortChips" role="group" aria-label="정렬 방식"></div>
+    </div>
+
+    <nav class="seg" role="tablist" aria-label="보기 방식">
+      <button class="seg__btn is-on" id="tabList" role="tab" aria-selected="true" aria-controls="paneList">목록</button>
+      <button class="seg__btn" id="tabMap" role="tab" aria-selected="false" aria-controls="paneMap">지도</button>
+    </nav>
+  </div>
+</div>
+
+<main class="panes">
+  <section class="pane pane--list is-on" id="paneList" role="tabpanel" aria-labelledby="tabList">
+    <ol class="list" id="list"></ol>
+    <div class="list__foot">
+      <button class="more" id="more" type="button" hidden>더 보기</button>
+      <p class="empty" id="empty" hidden>
+        <strong>조건에 맞는 휴양림이 없습니다.</strong>
+        이름 일부만 넣거나, 권역·운영주체·특징 필터를 풀어 보세요.
+      </p>
+    </div>
+  </section>
+
+  <section class="pane pane--map" id="paneMap" role="tabpanel" aria-labelledby="tabMap">
+    <div class="map" id="map"></div>
+
+    <div class="mapkey" id="mapkey">
+      <div class="mapkey__card">
+        <h2>지도를 켜려면 카카오 앱키가 필요합니다</h2>
+        <ol class="mapkey__steps">
+          <li><a href="https://developers.kakao.com/console/app" target="_blank" rel="noopener">카카오 개발자센터</a>에서 앱을 만듭니다.</li>
+          <li><b>앱 &gt; 플랫폼 키 &gt; JavaScript SDK 도메인</b>에 이 주소를 등록합니다.<br>
+              <code id="originHint">—</code></li>
+          <li><b>제품 설정 &gt; 카카오맵</b>의 활성화 설정을 <b>ON</b>으로 바꿉니다.</li>
+          <li>같은 화면의 <b>JavaScript 키</b>를 복사해 아래에 붙여넣습니다.</li>
+        </ol>
+        <div class="mapkey__form">
+          <input id="keyInput" type="text" placeholder="JavaScript 키 붙여넣기" autocomplete="off" spellcheck="false">
+          <button id="keySave" type="button">지도 켜기</button>
+        </div>
+        <p class="mapkey__note">키는 이 브라우저에만 저장됩니다. 목록은 키 없이도 그대로 됩니다.</p>
+      </div>
+    </div>
+
+    <button class="mapreset" id="mapreset" type="button" hidden>검색 결과 전체 보기</button>
+  </section>
+</main>
+
+<div class="sheet" id="sheet" hidden>
+  <button class="sheet__close" id="sheetClose" type="button" aria-label="닫기">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+  </button>
+  <p class="sheet__where" id="sheetWhere"></p>
+  <h2 class="sheet__name" id="sheetName"></h2>
+  <div class="sheet__badges" id="sheetBadges"></div>
+
+  <div class="gauge">
+    <div class="gauge__box gauge__box--comp">
+      <p class="gauge__label">공식 경쟁률</p>
+      <p class="gauge__value" id="sheetComp">—</p>
+      <p class="gauge__sub" id="sheetCompSub"></p>
+    </div>
+    <div class="gauge__box gauge__box--pop">
+      <p class="gauge__label">인기도</p>
+      <p class="gauge__value" id="sheetPop">—</p>
+      <p class="gauge__sub" id="sheetPopSub"></p>
+    </div>
+  </div>
+
+  <div class="resv" id="sheetResv"></div>
+
+  <p class="sheet__intro" id="sheetIntro"></p>
+  <dl class="spec" id="sheetSpec"></dl>
+  <div class="sheet__acts" id="sheetActs"></div>
+</div>
+
+<footer class="foot">
+  <div class="foot__metrics">
+    <p><b class="foot__k foot__k--comp">공식 경쟁률</b>
+       산림청 국립자연휴양림관리소가 여름 성수기 추첨이 끝난 뒤 발표하는 실제 신청 경쟁률입니다.
+       발표는 상위 몇 곳만 공개되므로 대부분의 휴양림은 <b>미발표</b>로 비어 있습니다.
+       빈 칸은 인기가 없다는 뜻이 아니라 <b>공식 수치가 없다</b>는 뜻입니다.</p>
+    <p><b class="foot__k foot__k--pop">인기도</b>
+       네이버 블로그·카페에 그 휴양림 이름으로 올라온 게시물 수를 로그 정규화해 별 5개로 환산한 값입니다.
+       얼마나 회자되는지를 볼 뿐, 예약 난이도와는 다릅니다. 상세 화면에 원본 건수를 그대로 함께 적어 둡니다.</p>
+    <p class="foot__why">두 값은 서로 다른 것을 잽니다. 경쟁률이 높은데 인기도가 낮으면 객실이 적어 뚫기 어려운 곳,
+       인기도가 높은데 경쟁률이 비어 있으면 공립이라 추첨 통계가 나오지 않는 곳일 수 있습니다. 나란히 놓고 직접 판단하세요.</p>
+  </div>
+  <p class="foot__src">
+    자료 출처 — 휴양림 정보·예약 규칙은 산림청 <b>숲나들e</b>(foresttrip.go.kr),
+    경쟁률은 <b>산림청 국립자연휴양림관리소</b> 발표, 인기도는 <b>네이버 검색</b>.
+    이 사이트는 <b>숲나들e와 무관한 비공식 정리 페이지</b>이며 예약 기능은 없습니다.
+    실제 예약과 정확한 일정은 반드시 숲나들e에서 확인하세요.
+  </p>
+  <p class="foot__meta" id="footMeta"></p>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

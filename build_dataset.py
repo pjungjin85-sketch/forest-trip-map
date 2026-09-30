@@ -32,7 +32,7 @@ COMP = os.path.join(BASE, "data", "competition.json")
 POP = os.path.join(BASE, "data", "popularity.json")
 OUT = os.path.join(BASE, "forests.json")
 
-SOURCE = "숲나들e(foresttrip.go.kr) · 산림청 국립자연휴양림관리소 · 네이버 검색"
+SOURCE = "숲나들e(foresttrip.go.kr) · 산림청 국립자연휴양림관리소"
 
 구분_휴양림, 구분_기타 = 0, 1
 구분_라벨 = ["자연휴양림", "그 외 산림휴양시설"]
@@ -120,14 +120,15 @@ def load(path, default=None):
         return default
 
 
-def 별점(블로그, 카페, 최소log, 최대log):
-    """언급량을 0~5 별점으로. 자릿수 차이가 커서 로그를 씌운 뒤 정규화한다.
+def 별점(관심, 최소log, 최대log):
+    """관심(찜) 수를 0~5 별점으로. 91~5,636 으로 자릿수 차이가 커서
+    로그를 씌운 뒤 전체 범위로 정규화한다.
 
     별점만 남기면 근거가 사라지므로 원시 건수도 함께 내보낸다.
     """
-    if 블로그 is None:
+    if 관심 is None:
         return None
-    v = math.log10((블로그 or 0) + (카페 or 0) + 1)
+    v = math.log10(관심 + 1)
     if 최대log <= 최소log:
         return 2.5
     r = (v - 최소log) / (최대log - 최소log) * 5
@@ -149,8 +150,7 @@ def main():
     matched = set()
 
     # --- 인기도 정규화 기준 ----------------------------------------------
-    합계들 = [(p.get("블로그") or 0) + (p.get("카페") or 0)
-             for p in pop_by_id.values() if p.get("블로그") is not None]
+    합계들 = [p["관심"] for p in pop_by_id.values() if p.get("관심") is not None]
     최소log = math.log10(min(합계들) + 1) if 합계들 else 0
     최대log = math.log10(max(합계들) + 1) if 합계들 else 0
 
@@ -179,8 +179,7 @@ def main():
         if 경쟁 is not None:
             matched.add(기본명)
 
-        p = pop_by_id.get(f["insttId"], {})
-        블로그, 카페 = p.get("블로그"), p.get("카페")
+        관심 = pop_by_id.get(f["insttId"], {}).get("관심")
 
         records.append({
             "id": f["insttId"],
@@ -203,9 +202,8 @@ def main():
             "태그": [태그들.index(t) for t in tags],
             "예약": 방식,
             "경쟁률": 경쟁,
-            "블로그": 블로그,
-            "카페": 카페,
-            "별점": 별점(블로그, 카페, 최소log, 최대log),
+            "관심": 관심,
+            "별점": 별점(관심, 최소log, 최대log),
             "홈": f.get("홈페이지") or "",
         })
 
@@ -228,6 +226,7 @@ def main():
         "특징태그수": 특징수,
         "경쟁률자료": comp,
         "인기도수집일": pop.get("수집일", ""),
+        "인기도출처": pop.get("출처", ""),
         "휴양림": records,
     }
 

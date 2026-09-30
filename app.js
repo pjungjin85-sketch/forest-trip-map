@@ -187,7 +187,7 @@ function buildChosung() {
 }
 
 function compOf(i) { return F[i].경쟁률; }
-function popOf(i) { return (F[i].블로그 || 0) + (F[i].카페 || 0); }
+function popOf(i) { return F[i].관심 || 0; }
 
 function search() {
   const q = norm(filter.q);
@@ -277,11 +277,10 @@ let 인기도있음 = false;      // 한 곳도 없으면 목록에서 인기도
 
 function popBlock(f) {
   if (f.별점 == null) {
-    return 인기도있음 ? '<span class="stars__none">인기도 수집 전</span>' : '';
+    return 인기도있음 ? '<span class="stars__none">인기도 없음</span>' : '';
   }
-  const n = (f.블로그 || 0) + (f.카페 || 0);
   return `<span class="stars"><span class="stars__marks">${starMarks(f.별점)}</span>`
-       + `${f.별점.toFixed(1)} <span>· 블로그·카페 ${n.toLocaleString('ko-KR')}건</span></span>`;
+       + `${f.별점.toFixed(1)} <span>· 관심 ${(f.관심 || 0).toLocaleString('ko-KR')}명</span></span>`;
 }
 
 function compBlock(f) {
@@ -375,13 +374,12 @@ function openSheet(i) {
     el.sheetPop.className = 'gauge__value';
     el.sheetPop.innerHTML = `<span style="color:var(--star)">${starMarks(f.별점)}</span> ${f.별점.toFixed(1)}`;
     el.sheetPopSub.textContent =
-      `네이버 블로그 ${(f.블로그 || 0).toLocaleString('ko-KR')}건 · `
-      + `카페 ${(f.카페 || 0).toLocaleString('ko-KR')}건`
+      `숲나들e 이용자 ${(f.관심 || 0).toLocaleString('ko-KR')}명이 관심 등록`
       + (D.인기도수집일 ? ` (${D.인기도수집일} 기준)` : '');
   } else {
     el.sheetPop.className = 'gauge__value gauge__value--none';
-    el.sheetPop.textContent = '수집 전';
-    el.sheetPopSub.textContent = '네이버 검색 API 키가 설정되면 채워집니다.';
+    el.sheetPop.textContent = '자료 없음';
+    el.sheetPopSub.textContent = '숲나들e에 관심 등록 기능이 없는 시설입니다.';
   }
 
   // --- 예약 방식 ---

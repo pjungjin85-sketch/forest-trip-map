@@ -1,28 +1,21 @@
 # -*- coding: utf-8 -*-
-"""네이버 검색 API -> data/popularity.json
+"""숲나들e 관심(찜) 수 -> data/popularity.json
 
-휴양림별 블로그·카페 게시물 수를 모은다. "얼마나 회자되는가"를 재는 값이고,
-산림청이 발표하는 공식 경쟁률과는 성격이 다른 별개의 축이다.
-(식당으로 치면 경쟁률이 미슐랭 스타, 이쪽이 지도 별점에 해당한다.)
+휴양림별로 숲나들e 이용자가 찍어 둔 '관심' 수를 모은다. 공식 경쟁률과는 성격이
+다른 별개의 축이다. 경쟁률이 산림청이 매기는 미슐랭 스타라면 이쪽은 지도 별점에
+가깝고, 예약 플랫폼 안에서 찍힌 값이라 예약 의도에 더 붙어 있다.
 
-검색어는 지자체명이 붙지 않은 정식명칭을 쓴다. '(강릉시)대관령자연휴양림' 으로
-검색하면 괄호 때문에 결과가 거의 안 잡히고, '대관령' 처럼 짧게 자르면 휴양림과
-무관한 글까지 섞인다. '대관령자연휴양림' 이 가장 정확하다.
+수집 방법이 조금 특이하다. 관심수를 주는 엔드포인트는 selectInsttInfoList.do
+하나뿐인데 태그 검색 전용이고, 태그가 달린 휴양림은 전체의 3분의 1뿐이다.
+그런데 이 엔드포인트는 srchTag 가 비면 **무작위 8곳**을 관심수와 함께 돌려준다.
+그래서 빈 태그로 반복 호출해 모으면 자연휴양림 172곳이 전부 채워진다.
+(쿠폰 수집가 문제라 뒤로 갈수록 느려진다. 400회쯤에서 더는 새로 안 나온다.)
 
-네이버가 2026년에 검색 API 를 NAVER API HUB(네이버 클라우드 플랫폼)로 옮기면서
-developers.naver.com 에서는 검색 API 신규 등록이 막혔다. 기존 키는 2027-06-30 까지
-쓸 수 있다. 응답 구조는 양쪽이 같고 주소와 인증 헤더만 다르므로 둘 다 지원한다.
+끝내 안 나오는 13곳은 국립등산학교·동서트레일 같은 비휴양림 시설이다.
+애초에 관심 기능이 없는 곳이라 빠져도 맞다.
 
-  # NAVER API HUB (신규는 이쪽)
-  export NCP_APIGW_API_KEY_ID=...
-  export NCP_APIGW_API_KEY=...
-
-  # developers.naver.com (2027-06-30 까지)
-  export NAVER_CLIENT_ID=...
-  export NAVER_CLIENT_SECRET=...
-
-자격증명이 없으면 오류 없이 그냥 종료한다. 인기도는 있으면 좋은 값이지,
-없다고 배포를 막을 값은 아니다.
+키가 필요 없다. 실패해도 기존 popularity.json 을 그대로 두고 조용히 끝낸다.
+인기도는 있으면 좋은 값이지, 없다고 배포를 막을 값은 아니다.
 """
 
 import json
@@ -34,101 +27,106 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from http.cookiejar import CookieJar
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 RAW = os.path.join(BASE, "data", "raw_forests.json")
 OUT = os.path.join(BASE, "data", "popularity.json")
 
-# (이름, 요청 URL 틀, ID 헤더, 시크릿 헤더)
-HUB = ("NAVER API HUB",
-       "https://naverapihub.apigw.ntruss.com/search/v1/{}?query={}&display=1",
-       "X-NCP-APIGW-API-KEY-ID", "X-NCP-APIGW-API-KEY")
-LEGACY = ("developers.naver.com",
-          "https://openapi.naver.com/v1/search/{}.json?query={}&display=1",
-          "X-Naver-Client-Id", "X-Naver-Client-Secret")
+SITE = "https://www.foresttrip.go.kr"
+MAIN = SITE + "/main.do?hmpgId=FRIP"
+UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+      "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
 
-DELAY = 0.2          # 초당 5건. 일 한도 25,000건 대비 한참 여유가 있다
+DELAY = 0.3          # 요청 간격(초)
+MAX_CALLS = 400      # 이보다 더 불러도 새로 나오는 곳이 없다
+STALL = 60           # 연속 이만큼 새 휴양림이 안 나오면 다 모았다고 본다
 RETRIES = 4
 
 
-def 검색어(f):
-    """'(강릉시)대관령자연휴양림' -> '대관령자연휴양림'"""
-    s = re.sub(r"^\([^)]*\)", "", f["별칭"] or "").strip()
-    return s or (f.get("이름") or "").strip()
-
-
-def total(kind, query, api, cid, secret):
-    """네이버 검색 결과 총 건수. 실패하면 백오프 후 재시도하고, 끝내 안 되면 None."""
-    _, tmpl, h_id, h_secret = api
-    url = tmpl.format(kind, urllib.parse.quote(query))
+def request(op, url, data=None, ajax=True):
+    body = urllib.parse.urlencode(data).encode() if data is not None else None
     for attempt in range(RETRIES):
-        req = urllib.request.Request(url)
-        req.add_header(h_id, cid)
-        req.add_header(h_secret, secret)
+        req = urllib.request.Request(url, data=body)
+        req.add_header("User-Agent", UA)
+        req.add_header("Referer", MAIN)
+        if ajax:
+            req.add_header("X-Requested-With", "XMLHttpRequest")
+        if body is not None:
+            req.add_header("Content-Type",
+                           "application/x-www-form-urlencoded; charset=UTF-8")
         try:
-            with urllib.request.urlopen(req, timeout=20) as res:
-                return json.loads(res.read().decode()).get("total")
-        except urllib.error.HTTPError as e:
-            if e.code in (401, 403):                # 자격증명 문제는 재시도해도 소용없다
-                몸통 = e.read().decode("utf-8", "replace")[:200]
-                raise SystemExit(f"[중단] {api[0]} 인증 실패({e.code}). {몸통}")
-            if attempt == RETRIES - 1:
-                return None
-            time.sleep(1.5 * (2 ** attempt) + random.random())
+            with op.open(req, timeout=25) as res:
+                return res.read().decode("utf-8", "replace")
         except (urllib.error.URLError, OSError):
             if attempt == RETRIES - 1:
-                return None
+                raise
             time.sleep(1.5 * (2 ** attempt) + random.random())
-    return None
+    raise RuntimeError("unreachable")
 
 
 def main():
-    cid = os.environ.get("NCP_APIGW_API_KEY_ID")
-    secret = os.environ.get("NCP_APIGW_API_KEY")
-    api = HUB
-    if not cid or not secret:
-        cid = os.environ.get("NAVER_CLIENT_ID")
-        secret = os.environ.get("NAVER_CLIENT_SECRET")
-        api = LEGACY
-    if not cid or not secret:
-        print("인증 정보가 없어 인기도 수집을 건너뜁니다.")
-        print("  NAVER API HUB: 네이버 클라우드 플랫폼 콘솔 > Services > Application Service")
-        print("                 > NAVER API HUB 에서 Application 을 등록하고 키를 받은 뒤,")
-        print("                 NCP_APIGW_API_KEY_ID / NCP_APIGW_API_KEY 로 넣으세요.")
+    try:
+        with open(RAW, encoding="utf-8") as fp:
+            facilities = json.load(fp)["시설"]
+    except (OSError, ValueError):
+        print(f"{RAW} 를 읽지 못해 인기도 수집을 건너뜁니다.")
         return 0
-    print(f"인증: {api[0]}")
 
-    with open(RAW, encoding="utf-8") as fp:
-        facilities = json.load(fp)["시설"]
+    목표 = {f["insttId"] for f in facilities if "자연휴양림" in f["별칭"]}
+    이름 = {f["insttId"]: f["별칭"] for f in facilities}
 
-    t0 = time.time()
-    out, 실패 = {}, []
-    for i, f in enumerate(facilities, 1):
-        q = 검색어(f)
-        b = total("blog", q, api, cid, secret)
+    op = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(CookieJar()))
+    try:
+        home = request(op, MAIN, ajax=False)
+        csrf = re.search(r"_csrf=([0-9a-f-]{36})", home).group(1)
+    except Exception as e:
+        print(f"세션을 못 잡아 인기도 수집을 건너뜁니다: {e}")
+        return 0
+
+    url = f"{SITE}/com/selectInsttInfoList.do?_csrf={csrf}"
+    t0, 모은것, calls, 정체 = time.time(), {}, 0, 0
+
+    while calls < MAX_CALLS and 정체 < STALL:
+        calls += 1
+        before = len(모은것)
+        try:
+            rows = json.loads(request(op, url, {"srchTag": ""})).get("result") or []
+        except Exception as e:
+            print(f"  {calls}회차 실패, 여기까지만 씁니다: {e}")
+            break
+        for x in rows:
+            if x.get("intrsCnt") is not None:
+                모은것[x["insttId"]] = x["intrsCnt"]
+        정체 = 0 if len(모은것) > before else 정체 + 1
+        if calls % 50 == 0:
+            print(f"  {calls:3d}회 · 누적 {len(모은것):3d}곳", flush=True)
         time.sleep(DELAY)
-        c = total("cafearticle", q, api, cid, secret)
-        time.sleep(DELAY)
-        if b is None and c is None:
-            실패.append(q)
-            continue
-        out[f["insttId"]] = {"검색어": q, "블로그": b or 0, "카페": c or 0}
-        if i % 40 == 0:
-            print(f"  {i:3d}/{len(facilities)}", flush=True)
 
-    payload = {"수집일": time.strftime("%Y-%m-%d"), "시설": out}
+    받은휴양림 = 목표 & set(모은것)
+    if not 받은휴양림:
+        print("한 곳도 못 받아 기존 자료를 그대로 둡니다.")
+        return 0
+
+    payload = {"수집일": time.strftime("%Y-%m-%d"), "출처": "숲나들e 관심(찜) 수",
+               "시설": {k: {"관심": v} for k, v in 모은것.items()}}
     tmp = OUT + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fp:
         json.dump(payload, fp, ensure_ascii=False, separators=(",", ":"))
     os.replace(tmp, OUT)
 
-    상위 = sorted(out.items(), key=lambda kv: -(kv[1]["블로그"] + kv[1]["카페"]))[:10]
-    print(f"\n완료: {len(out)}곳 · {time.time() - t0:.0f}초 · {OUT}")
-    print("언급량 상위 10곳")
-    for _, v in 상위:
-        print(f"  {v['검색어']:24s} 블로그 {v['블로그']:>7,} · 카페 {v['카페']:>7,}")
-    if 실패:
-        print(f"수집 실패 {len(실패)}곳: {', '.join(실패[:10])}")
+    빠진 = 목표 - set(모은것)
+    상위 = sorted(((v, 이름.get(k, k)) for k, v in 모은것.items()
+                  if k in 목표), reverse=True)[:10]
+
+    print(f"\n완료: {len(모은것)}곳 (자연휴양림 {len(받은휴양림)}/{len(목표)}) · "
+          f"{calls}회 호출 · {time.time() - t0:.0f}초 · {OUT}")
+    print("관심 상위 10곳")
+    for v, n in 상위:
+        print(f"  {v:>6,}  {n}")
+    if 빠진:
+        print(f"못 받은 자연휴양림 {len(빠진)}곳: "
+              f"{', '.join(이름.get(k, k) for k in list(빠진)[:10])}")
     return 0
 
 

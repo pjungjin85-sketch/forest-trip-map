@@ -4,3 +4,4 @@ data/popularity.json
 .DS_Store
 __pycache__/
 .env
+.vercel

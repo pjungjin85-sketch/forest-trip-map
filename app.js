@@ -559,8 +559,16 @@ function setPane(which) {
   el.paneList.classList.toggle('is-on', !isMap);
   el.paneMap.classList.toggle('is-on', isMap);
   if (isMap && map) {
-    map.relayout();
-    if (markersDirty) { refitNext = true; syncMarkers(); }
+    // relayout() 은 곧바로 도는데, 지도 pane 이 방금 보이기 시작한 터라 이 시점의
+    // 컨테이너 크기는 아직 예전 값이다. 그대로 setBounds 를 부르면 잘못된 크기로
+    // 화면을 맞춰 전국이 한쪽으로 치우친다. 레이아웃이 반영된 다음 프레임에 맞춘다.
+    requestAnimationFrame(() => {
+      map.relayout();
+      requestAnimationFrame(() => {
+        refitNext = true;
+        syncMarkers();
+      });
+    });
   }
 }
 

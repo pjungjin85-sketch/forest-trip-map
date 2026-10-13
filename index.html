@@ -45,9 +45,16 @@
 
 <section class="sched" aria-labelledby="schedTitle">
   <div class="sched__inner">
-    <h2 class="sched__title" id="schedTitle">다음 예약 일정</h2>
-    <div class="sched__cards" id="schedCards"></div>
-    <p class="sched__note">국립자연휴양림 공통 규칙입니다. 공립·사립은 휴양림마다 달라 각 휴양림 안내를 확인하세요.</p>
+    <button class="sched__head" id="schedToggle" type="button"
+            aria-expanded="false" aria-controls="schedBody">
+      <span class="sched__title" id="schedTitle">다음 예약 일정</span>
+      <span class="sched__sum" id="schedSum"></span>
+      <svg class="sched__chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+    </button>
+    <div class="sched__body" id="schedBody" hidden>
+      <div class="sched__cards" id="schedCards"></div>
+      <p class="sched__note">국립자연휴양림 공통 규칙입니다. 공립·사립은 휴양림마다 달라 각 휴양림 안내를 확인하세요.</p>
+    </div>
   </div>
 </section>
 

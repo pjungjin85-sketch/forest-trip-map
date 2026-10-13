@@ -22,7 +22,8 @@ const $ = (id) => document.getElementById(id);
 const el = {
   q: $('q'), clear: $('clear'), hit: $('hit'), scope: $('scope'),
   headMeta: $('headMeta'), footMeta: $('footMeta'),
-  schedCards: $('schedCards'),
+  schedCards: $('schedCards'), schedSum: $('schedSum'),
+  schedToggle: $('schedToggle'), schedBody: $('schedBody'),
   areaSel: $('areaSel'), citySel: $('citySel'),
   tagChips: $('tagChips'), sortChips: $('sortChips'),
   tabList: $('tabList'), tabMap: $('tabMap'), paneList: $('paneList'), paneMap: $('paneMap'),
@@ -152,9 +153,19 @@ function peakLotteryCard(now) {
   };
 }
 
+/** 접힌 줄에 들어갈 요약. 이름을 줄여 셋이 한 줄에 들어가게 한다. */
+const SCHED_SHORT = { '선착순 예약': '선착순', '주말 추첨': '주말추첨', '여름 성수기 추첨': '성수기' };
+
+function setSchedOpen(open) {
+  el.schedToggle.setAttribute('aria-expanded', String(open));
+  el.schedBody.hidden = !open;
+  try { localStorage.setItem('schedOpen', open ? '1' : '0'); } catch (e) { /* 사생활 보호 모드 */ }
+}
+
 function renderSchedule() {
   const now = new Date();
   const cards = [firstComeCard(now), weekendLotteryCard(now), peakLotteryCard(now)];
+
   el.schedCards.innerHTML = cards.map((c) => `
     <div class="scard">
       <div class="scard__top">
@@ -164,6 +175,19 @@ function renderSchedule() {
       <p class="scard__when">${esc(c.when)}</p>
       <p class="scard__what">${esc(c.what)}</p>
     </div>`).join('');
+
+  el.schedSum.innerHTML = cards
+    .map((c) => `${esc(SCHED_SHORT[c.name] || c.name)} <b>${esc(c.dday)}</b>`)
+    .join(' · ');
+
+  // 넓은 화면은 카드 셋이 가로로 들어가 자리를 거의 안 먹으니 펼쳐 둔다.
+  // 휴대폰은 접어 두어야 목록이 첫 화면에 들어온다. 사용자가 바꾸면 그 선택을 기억한다.
+  let open = window.matchMedia('(min-width:900px)').matches;
+  try {
+    const saved = localStorage.getItem('schedOpen');
+    if (saved !== null) open = saved === '1';
+  } catch (e) { /* 무시 */ }
+  setSchedOpen(open);
 }
 
 /* ---------------- 검색 ---------------- */
@@ -653,6 +677,11 @@ function init() {
     refitNext = true;
     markSelects();
     search();
+  });
+
+  el.schedToggle.addEventListener('click', () => {
+    setSchedOpen(el.schedToggle.getAttribute('aria-expanded') !== 'true');
+    measureControls();
   });
 
   el.more.addEventListener('click', renderMore);

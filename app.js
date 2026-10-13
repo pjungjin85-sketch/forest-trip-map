@@ -23,9 +23,8 @@ const el = {
   q: $('q'), clear: $('clear'), hit: $('hit'), scope: $('scope'),
   headMeta: $('headMeta'), footMeta: $('footMeta'),
   schedCards: $('schedCards'),
-  kindChips: $('kindChips'), typeChips: $('typeChips'),
   areaSel: $('areaSel'), citySel: $('citySel'),
-  resvChips: $('resvChips'), tagChips: $('tagChips'), sortChips: $('sortChips'),
+  tagChips: $('tagChips'), sortChips: $('sortChips'),
   tabList: $('tabList'), tabMap: $('tabMap'), paneList: $('paneList'), paneMap: $('paneMap'),
   list: $('list'), more: $('more'), empty: $('empty'),
   map: $('map'), mapkey: $('mapkey'), mapreset: $('mapreset'),
@@ -47,7 +46,10 @@ let results = [];      // 필터 결과 — 인덱스 배열
 let shown = 0;
 let refitNext = true;  // 지도 뷰포트를 다시 맞출지. 위치 기준이 바뀔 때만 켠다
 
-const filter = { q: '', kind: 0, area: -1, city: '', type: -1, resv: -1, tag: -1, sort: 'pop' };
+// 자연휴양림만 다룬다. 숲나들e 목록에 함께 들어 있는 비휴양림 시설 27곳
+// (국립등산학교·동서트레일·산림레포츠파크 등)은 화면에 올리지 않는다.
+const 자연휴양림 = 0;
+const filter = { q: '', area: -1, city: '', tag: -1, sort: 'pop' };
 
 /* ---------------- 예약 일정 ---------------- */
 
@@ -199,11 +201,9 @@ function search() {
   results = [];
   for (let i = 0; i < F.length; i++) {
     const f = F[i];
-    if (f.구분 !== filter.kind) continue;
+    if (f.구분 !== 자연휴양림) continue;
     if (filter.area >= 0 && f.권역 !== filter.area) continue;
     if (filter.city && `${f.권역}|${f.시군구}` !== filter.city) continue;
-    if (filter.type >= 0 && f.유형 !== filter.type) continue;
-    if (filter.resv >= 0 && f.예약 !== filter.resv) continue;
     if (filter.tag >= 0 && !f.태그.includes(filter.tag)) continue;
     if (q && !hay[i].includes(q)) continue;
     results.push(i);
@@ -235,11 +235,8 @@ function search() {
 function updateTally() {
   el.hit.textContent = results.length.toLocaleString('ko-KR');
   const bits = [];
-  bits.push(D.구분라벨[filter.kind]);
   if (filter.area >= 0) bits.push(D.권역라벨[filter.area]);
   if (filter.city) bits.push(filter.city.split('|')[1]);
-  if (filter.type >= 0) bits.push(D.유형라벨[filter.type]);
-  if (filter.resv >= 0) bits.push(D.예약라벨[filter.resv]);
   if (filter.tag >= 0) bits.push(D.태그라벨[filter.tag]);
   if (filter.q) bits.push(`"${filter.q}"`);
   el.scope.textContent = bits.join(' · ');
@@ -503,25 +500,18 @@ function chip(label, on) {
   return `<button class="chip${on ? ' is-on' : ''}" type="button">${esc(label)}</button>`;
 }
 
-/** 라벨 배열로 칩 묶음을 만든다. all 이 true 면 맨 앞에 '전체'(-1)를 둔다. */
 /* ---- 지역 선택 (권역 -> 시·군·구) ---- */
 
-/** 지금 켜 둔 시설구분 안에서 세어야 "선택했더니 0곳"이 안 나온다. */
-function inKind(f) { return f.구분 === filter.kind; }
+function inKind(f) { return f.구분 === 자연휴양림; }
 
 function buildAreaSelect() {
   const 수 = D.권역라벨.map(() => 0);
   F.forEach((f) => { if (inKind(f) && f.권역 >= 0) 수[f.권역]++; });
 
-  // 고른 권역에 이 구분의 시설이 한 곳도 없으면 전국으로 되돌린다. 안 그러면
-  // 그 권역 옵션이 목록에서 빠지면서 셀렉트가 아무것도 안 가리키는 빈 상태가 되고,
-  // 결과는 0곳인데 어디를 풀어야 할지 알 수 없게 된다.
-  if (filter.area >= 0 && !수[filter.area]) { filter.area = -1; filter.city = ''; }
-
   const 전체 = 수.reduce((a, b) => a + b, 0);
   let html = `<option value="-1">전국 (${전체.toLocaleString('ko-KR')})</option>`;
   D.권역라벨.forEach((label, i) => {
-    if (!수[i]) return;                       // 그 구분에 한 곳도 없는 권역은 빼 둔다
+    if (!수[i]) return;
     html += `<option value="${i}">${esc(label)} (${수[i]})</option>`;
   });
   el.areaSel.innerHTML = html;
@@ -571,20 +561,6 @@ function refreshRegion() {
   buildAreaSelect();
   buildCitySelect();
   markSelects();
-}
-
-function buildChips(box, labels, key, all) {
-  const items = all ? [{ v: -1, t: '전체' }] : [];
-  labels.forEach((t, v) => items.push({ v, t }));
-  box.innerHTML = items.map((it) => chip(it.t, filter[key] === it.v)).join('');
-  box.querySelectorAll('.chip').forEach((b, n) => {
-    b.addEventListener('click', () => {
-      filter[key] = items[n].v;
-      box.querySelectorAll('.chip').forEach((x, k) => x.classList.toggle('is-on', k === n));
-      if (key === 'kind') { refitNext = true; refreshRegion(); }
-      search();
-    });
-  });
 }
 
 function buildSortChips() {
@@ -725,10 +701,7 @@ function init() {
       인기도있음 = F.some((f) => f.별점 != null);
       if (!인기도있음) filter.sort = 'comp';
 
-      buildChips(el.kindChips, D.구분라벨, 'kind', false);
       refreshRegion();
-      buildChips(el.typeChips, D.유형라벨, 'type', true);
-      buildChips(el.resvChips, D.예약라벨, 'resv', true);
       buildTagChips();
       buildSortChips();
 

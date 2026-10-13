@@ -120,6 +120,30 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
 .chip.is-on{background:var(--forest);border-color:var(--forest);color:#fff;font-weight:700}
 .chips--sort .chip.is-on{background:var(--ink-2);border-color:var(--ink-2)}
 
+/* 지역 선택 — 권역과 시·군·구 두 단계.
+   휴양림이 172곳이라 시군구가 118개나 되는데, 칩으로 늘어놓으면 가로로 한없이
+   길어져 고를 수가 없다. 셀렉트 박스는 목록을 접어 두니 개수가 늘어도 괜찮다. */
+.selects{display:flex;gap:8px;padding-bottom:8px}
+.sel{flex:1 1 0;min-width:0;position:relative;display:block}
+.sel__cap{
+  position:absolute;left:12px;top:5px;z-index:1;pointer-events:none;
+  font-size:10px;font-weight:700;color:var(--muted);letter-spacing:.02em;
+}
+.sel__box{
+  -webkit-appearance:none;appearance:none;
+  width:100%;padding:20px 30px 8px 12px;
+  border:1px solid var(--line);border-radius:12px;background:var(--surface);
+  font-size:14px;font-weight:600;color:var(--ink-2);cursor:pointer;
+  text-overflow:ellipsis;
+  /* 오른쪽 화살표. 배경 이미지라 폰트 크기와 무관하게 자리가 고정된다. */
+  background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237C838F' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 10px center;background-size:15px;
+}
+.sel__box:focus{outline:none;border-color:var(--forest)}
+.sel__box:disabled{background-color:var(--paper);color:var(--muted);cursor:default;opacity:1}
+.sel--on .sel__box{border-color:var(--forest);background-color:var(--forest-pale);color:var(--forest-deep)}
+.sel--on .sel__cap{color:var(--forest-deep)}
+
 .seg{display:flex;gap:0;border-bottom:1px solid var(--line);margin-top:2px}
 .seg__btn{
   flex:1;border:0;background:none;padding:11px 0 10px;font-size:14px;font-weight:600;

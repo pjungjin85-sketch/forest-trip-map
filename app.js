@@ -23,7 +23,8 @@ const el = {
   q: $('q'), clear: $('clear'), hit: $('hit'), scope: $('scope'),
   headMeta: $('headMeta'), footMeta: $('footMeta'),
   schedCards: $('schedCards'),
-  kindChips: $('kindChips'), areaChips: $('areaChips'), typeChips: $('typeChips'),
+  kindChips: $('kindChips'), typeChips: $('typeChips'),
+  areaSel: $('areaSel'), citySel: $('citySel'),
   resvChips: $('resvChips'), tagChips: $('tagChips'), sortChips: $('sortChips'),
   tabList: $('tabList'), tabMap: $('tabMap'), paneList: $('paneList'), paneMap: $('paneMap'),
   list: $('list'), more: $('more'), empty: $('empty'),
@@ -46,7 +47,7 @@ let results = [];      // 필터 결과 — 인덱스 배열
 let shown = 0;
 let refitNext = true;  // 지도 뷰포트를 다시 맞출지. 위치 기준이 바뀔 때만 켠다
 
-const filter = { q: '', kind: 0, area: -1, type: -1, resv: -1, tag: -1, sort: 'pop' };
+const filter = { q: '', kind: 0, area: -1, city: '', type: -1, resv: -1, tag: -1, sort: 'pop' };
 
 /* ---------------- 예약 일정 ---------------- */
 
@@ -200,6 +201,7 @@ function search() {
     const f = F[i];
     if (f.구분 !== filter.kind) continue;
     if (filter.area >= 0 && f.권역 !== filter.area) continue;
+    if (filter.city && `${f.권역}|${f.시군구}` !== filter.city) continue;
     if (filter.type >= 0 && f.유형 !== filter.type) continue;
     if (filter.resv >= 0 && f.예약 !== filter.resv) continue;
     if (filter.tag >= 0 && !f.태그.includes(filter.tag)) continue;
@@ -235,6 +237,7 @@ function updateTally() {
   const bits = [];
   bits.push(D.구분라벨[filter.kind]);
   if (filter.area >= 0) bits.push(D.권역라벨[filter.area]);
+  if (filter.city) bits.push(filter.city.split('|')[1]);
   if (filter.type >= 0) bits.push(D.유형라벨[filter.type]);
   if (filter.resv >= 0) bits.push(D.예약라벨[filter.resv]);
   if (filter.tag >= 0) bits.push(D.태그라벨[filter.tag]);
@@ -501,6 +504,75 @@ function chip(label, on) {
 }
 
 /** 라벨 배열로 칩 묶음을 만든다. all 이 true 면 맨 앞에 '전체'(-1)를 둔다. */
+/* ---- 지역 선택 (권역 -> 시·군·구) ---- */
+
+/** 지금 켜 둔 시설구분 안에서 세어야 "선택했더니 0곳"이 안 나온다. */
+function inKind(f) { return f.구분 === filter.kind; }
+
+function buildAreaSelect() {
+  const 수 = D.권역라벨.map(() => 0);
+  F.forEach((f) => { if (inKind(f) && f.권역 >= 0) 수[f.권역]++; });
+
+  // 고른 권역에 이 구분의 시설이 한 곳도 없으면 전국으로 되돌린다. 안 그러면
+  // 그 권역 옵션이 목록에서 빠지면서 셀렉트가 아무것도 안 가리키는 빈 상태가 되고,
+  // 결과는 0곳인데 어디를 풀어야 할지 알 수 없게 된다.
+  if (filter.area >= 0 && !수[filter.area]) { filter.area = -1; filter.city = ''; }
+
+  const 전체 = 수.reduce((a, b) => a + b, 0);
+  let html = `<option value="-1">전국 (${전체.toLocaleString('ko-KR')})</option>`;
+  D.권역라벨.forEach((label, i) => {
+    if (!수[i]) return;                       // 그 구분에 한 곳도 없는 권역은 빼 둔다
+    html += `<option value="${i}">${esc(label)} (${수[i]})</option>`;
+  });
+  el.areaSel.innerHTML = html;
+  el.areaSel.value = String(filter.area);
+}
+
+function buildCitySelect() {
+  // '권역인덱스|시군구' -> 개수. 같은 이름이 다른 권역에 있어도(고성군) 안 섞인다.
+  const 수 = new Map();
+  F.forEach((f) => {
+    if (!inKind(f) || f.권역 < 0 || !f.시군구) return;
+    if (filter.area >= 0 && f.권역 !== filter.area) return;
+    const k = `${f.권역}|${f.시군구}`;
+    수.set(k, (수.get(k) || 0) + 1);
+  });
+
+  const 전체 = [...수.values()].reduce((a, b) => a + b, 0);
+  const opt = (k) => {
+    const nm = k.split('|')[1];
+    return `<option value="${esc(k)}">${esc(nm)} (${수.get(k)})</option>`;
+  };
+  const 가나다 = (a, b) => a.split('|')[1].localeCompare(b.split('|')[1], 'ko');
+
+  let html = `<option value="">전체 (${전체.toLocaleString('ko-KR')})</option>`;
+  if (filter.area >= 0) {
+    html += [...수.keys()].sort(가나다).map(opt).join('');
+  } else {
+    // 전국일 때는 118개가 한 줄로 쏟아진다. 권역으로 묶어 두면 훑기 쉽고,
+    // 같은 이름이 둘 있어도(고성군) 어느 권역 것인지 바로 보인다.
+    D.권역라벨.forEach((label, i) => {
+      const keys = [...수.keys()].filter((k) => k.startsWith(`${i}|`)).sort(가나다);
+      if (!keys.length) return;
+      html += `<optgroup label="${esc(label)}">${keys.map(opt).join('')}</optgroup>`;
+    });
+  }
+  el.citySel.innerHTML = html;
+  el.citySel.value = 수.has(filter.city) ? filter.city : (filter.city = '');
+}
+
+/** 고른 값이 있으면 셀렉트를 초록으로 칠해, 필터가 걸려 있다는 걸 눈에 띄게 한다. */
+function markSelects() {
+  el.areaSel.closest('.sel').classList.toggle('sel--on', filter.area >= 0);
+  el.citySel.closest('.sel').classList.toggle('sel--on', !!filter.city);
+}
+
+function refreshRegion() {
+  buildAreaSelect();
+  buildCitySelect();
+  markSelects();
+}
+
 function buildChips(box, labels, key, all) {
   const items = all ? [{ v: -1, t: '전체' }] : [];
   labels.forEach((t, v) => items.push({ v, t }));
@@ -509,7 +581,7 @@ function buildChips(box, labels, key, all) {
     b.addEventListener('click', () => {
       filter[key] = items[n].v;
       box.querySelectorAll('.chip').forEach((x, k) => x.classList.toggle('is-on', k === n));
-      if (key === 'area' || key === 'kind') refitNext = true;
+      if (key === 'kind') { refitNext = true; refreshRegion(); }
       search();
     });
   });
@@ -592,6 +664,21 @@ function init() {
     el.q.value = ''; filter.q = ''; el.clear.hidden = true; refitNext = true; search(); el.q.focus();
   });
 
+  el.areaSel.addEventListener('change', () => {
+    filter.area = +el.areaSel.value;
+    filter.city = '';                      // 권역이 바뀌면 시·군·구는 처음으로
+    refitNext = true;
+    buildCitySelect();
+    markSelects();
+    search();
+  });
+  el.citySel.addEventListener('change', () => {
+    filter.city = el.citySel.value;
+    refitNext = true;
+    markSelects();
+    search();
+  });
+
   el.more.addEventListener('click', renderMore);
 
   el.list.addEventListener('click', (e) => {
@@ -639,7 +726,7 @@ function init() {
       if (!인기도있음) filter.sort = 'comp';
 
       buildChips(el.kindChips, D.구분라벨, 'kind', false);
-      buildChips(el.areaChips, D.권역라벨, 'area', true);
+      refreshRegion();
       buildChips(el.typeChips, D.유형라벨, 'type', true);
       buildChips(el.resvChips, D.예약라벨, 'resv', true);
       buildTagChips();

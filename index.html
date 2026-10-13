@@ -71,7 +71,16 @@
 
     <div class="filters">
       <div class="chips" id="kindChips" role="group" aria-label="시설 구분"></div>
-      <div class="chips" id="areaChips" role="group" aria-label="권역 선택"></div>
+      <div class="selects">
+        <label class="sel">
+          <span class="sel__cap">권역</span>
+          <select class="sel__box" id="areaSel" aria-label="권역 선택"></select>
+        </label>
+        <label class="sel">
+          <span class="sel__cap">시·군·구</span>
+          <select class="sel__box" id="citySel" aria-label="시군구 선택"></select>
+        </label>
+      </div>
       <div class="chips" id="typeChips" role="group" aria-label="운영 주체 선택"></div>
       <div class="chips" id="resvChips" role="group" aria-label="예약 방식 선택"></div>
       <div class="chips chips--sub" id="tagChips" role="group" aria-label="특징 선택"></div>

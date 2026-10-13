@@ -31,6 +31,7 @@ const el = {
   map: $('map'), mapkey: $('mapkey'), mapreset: $('mapreset'),
   keyInput: $('keyInput'), keySave: $('keySave'), originHint: $('originHint'),
   sheet: $('sheet'), sheetClose: $('sheetClose'), sheetWhere: $('sheetWhere'),
+  sheetPhoto: $('sheetPhoto'),
   sheetName: $('sheetName'), sheetBadges: $('sheetBadges'),
   sheetComp: $('sheetComp'), sheetCompSub: $('sheetCompSub'),
   sheetPop: $('sheetPop'), sheetPopSub: $('sheetPopSub'),
@@ -314,19 +315,31 @@ function compBlock(f) {
        + `<span style="font-weight:500">(${해} 성수기)</span></span>`;
 }
 
+/** 대표 사진. 172곳 중 170곳에 있고, 없으면 숲 실루엣을 대신 깐다.
+    CDN 이 ?rs= 로 가로폭을 줄여 주므로 썸네일 크기만 받아 쓴다. */
+function thumb(f) {
+  if (!f.사진 || !D.이미지CDN) return '<div class="row__thumb row__thumb--none" aria-hidden="true"></div>';
+  const src = `${D.이미지CDN}${f.사진}?rs=320`;
+  return `<img class="row__thumb" src="${esc(src)}" alt="" loading="lazy" decoding="async"
+            onerror="this.classList.add('row__thumb--none');this.removeAttribute('src')">`;
+}
+
 function renderMore() {
   const slice = results.slice(shown, shown + PAGE);
   const html = slice.map((i, n) => {
     const f = F[i];
     const t = f.유형 >= 0 ? f.유형 : 0;
     return `<li class="row" data-n="${shown + n}" tabindex="0">
-      <div class="row__top">
-        <span class="kind kind--${TYPE_CLASS[t]}">${esc(D.유형라벨[t])}</span>
-        <span class="row__resv">${esc(D.예약라벨[f.예약])}</span>
-        <span class="row__where">${esc(f.권역 >= 0 ? D.권역라벨[f.권역] : '')} ${esc(f.시군구)}</span>
+      ${thumb(f)}
+      <div class="row__info">
+        <div class="row__top">
+          <span class="kind kind--${TYPE_CLASS[t]}">${esc(D.유형라벨[t])}</span>
+          <span class="row__resv">${esc(D.예약라벨[f.예약])}</span>
+          <span class="row__where">${esc(f.권역 >= 0 ? D.권역라벨[f.권역] : '')} ${esc(f.시군구)}</span>
+        </div>
+        <p class="row__name">${highlight(f.이름)}</p>
+        <div class="row__meta">${popBlock(f)}${compBlock(f)}</div>
       </div>
-      <p class="row__name">${highlight(f.이름)}</p>
-      <div class="row__meta">${popBlock(f)}${compBlock(f)}</div>
     </li>`;
   }).join('');
   el.list.insertAdjacentHTML('beforeend', html);
@@ -369,6 +382,15 @@ function resvDetail(f) {
 function openSheet(i) {
   const f = F[i];
   const t = f.유형 >= 0 ? f.유형 : 0;
+
+  // 목록 썸네일은 320px 로 받았으니 상세는 더 큰 걸 받는다.
+  if (f.사진 && D.이미지CDN) {
+    el.sheetPhoto.src = `${D.이미지CDN}${f.사진}?rs=800`;
+    el.sheetPhoto.hidden = false;
+  } else {
+    el.sheetPhoto.removeAttribute('src');
+    el.sheetPhoto.hidden = true;
+  }
 
   el.sheetWhere.textContent = `${f.권역 >= 0 ? D.권역라벨[f.권역] : ''} · ${f.시도} ${f.시군구}`;
   el.sheetName.textContent = f.이름;

@@ -175,10 +175,23 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
 /* ---------- list ---------- */
 .list{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:10px}
 .row{
+  display:grid;grid-template-columns:96px minmax(0,1fr);gap:13px;
   background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
-  padding:14px 15px;cursor:pointer;
+  padding:12px;cursor:pointer;
 }
 .row:hover{border-color:var(--forest-line)}
+.row__info{min-width:0}
+/* 대표 사진. 가로세로 4:3 으로 고정해 줄이 들쭉날쭉해지지 않게 한다. */
+.row__thumb{
+  width:96px;aspect-ratio:4/3;object-fit:cover;border-radius:10px;
+  background:var(--forest-pale);display:block;
+}
+/* 사진이 없거나 못 받은 두 곳. 빈 칸 대신 숲 색을 깐다. */
+.row__thumb--none{
+  background:
+    linear-gradient(160deg,var(--forest-pale),#DCEFE7)
+    ,var(--forest-pale);
+}
 .row__top{display:flex;align-items:center;gap:7px;margin-bottom:5px}
 .kind{
   font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;color:#fff;letter-spacing:.02em;
@@ -242,6 +255,13 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
 }
 @keyframes rise{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
 .sheet__close{position:absolute;right:14px;top:14px;width:32px;height:32px;padding:6px;border:0;background:var(--paper);border-radius:50%;color:var(--ink);cursor:pointer}
+/* 상세 사진은 시트 위쪽을 꽉 채운다. 좌우 여백을 음수 마진으로 밀어 낸다. */
+.sheet__photo{
+  display:block;width:calc(100% + var(--pad) * 2);
+  margin:-22px calc(var(--pad) * -1) 16px;
+  aspect-ratio:16/9;object-fit:cover;background:var(--forest-pale);
+  border-radius:20px 20px 0 0;
+}
 .sheet__where{margin:0 0 4px;font-size:12px;color:var(--muted)}
 .sheet__name{margin:0 0 10px;font-size:22px;font-weight:800;letter-spacing:-.03em;color:var(--ink-2);padding-right:36px}
 .sheet__badges{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:14px}
@@ -289,6 +309,10 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
 .foot__meta{max-width:1200px;margin:10px auto 0;font-size:11px;color:var(--muted)}
 
 /* ---------- desktop ---------- */
+@media (max-width:420px){
+  .row{grid-template-columns:78px minmax(0,1fr);gap:11px}
+  .row__thumb{width:78px}
+}
 @media (max-width:640px){
   /* 좁은 화면에서는 제목이 폭을 다 쓴다. 숲을 화면 전체 폭에 깔되 더 연하게 두고,
      나무가 잘려 보이지 않도록 아래쪽에 충분한 높이를 준다. */
@@ -307,6 +331,7 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
     left:auto;right:24px;bottom:24px;width:380px;max-height:78vh;
     border-radius:18px;border-top-width:4px;
   }
+  .sheet__photo{border-radius:14px 14px 0 0}
   .foot__metrics{grid-template-columns:1fr 1fr}
   .foot__why{grid-column:1/-1}
 }

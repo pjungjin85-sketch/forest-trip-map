@@ -179,7 +179,8 @@ def main():
         if 경쟁 is not None:
             matched.add(기본명)
 
-        관심 = pop_by_id.get(f["insttId"], {}).get("관심")
+        p = pop_by_id.get(f["insttId"], {})
+        관심, 사진 = p.get("관심"), p.get("이미지") or ""
 
         records.append({
             "id": f["insttId"],
@@ -203,6 +204,7 @@ def main():
             "예약": 방식,
             "경쟁률": 경쟁,
             "관심": 관심,
+            "사진": 사진,
             "별점": 별점(관심, 최소log, 최대log),
             "홈": f.get("홈페이지") or "",
         })
@@ -226,6 +228,7 @@ def main():
         "특징태그수": 특징수,
         "경쟁률자료": comp,
         "인기도수집일": pop.get("수집일", ""),
+        "이미지CDN": pop.get("이미지CDN", ""),
         "인기도출처": pop.get("출처", ""),
         "휴양림": records,
     }
@@ -253,6 +256,7 @@ def main():
     print(f"  공식 경쟁률 : {sum(1 for r in records if r['경쟁률'] is not None)}곳 "
           f"(발표 {len(comp_map)}건)")
     print(f"  인기도      : {sum(1 for r in records if r['별점'] is not None)}곳")
+    print(f"  대표사진    : {sum(1 for r in 휴양림만 if r['사진'])}/{len(휴양림만)}곳")
     print(f"  태그 {len(태그들)}종 (특징 {특징수} + 원본 {len(태그들) - 특징수}) · "
           f"태그 없는 곳 {sum(1 for r in records if not r['태그'])}곳")
     print(f"  좌표 없음 {sum(1 for r in records if r['y'] is None)}곳")

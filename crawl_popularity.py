@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-"""숲나들e 관심(찜) 수 -> data/popularity.json
+"""숲나들e 관심(찜) 수와 대표 이미지 -> data/popularity.json
 
-휴양림별로 숲나들e 이용자가 찍어 둔 '관심' 수를 모은다. 공식 경쟁률과는 성격이
+휴양림별로 숲나들e 이용자가 찍어 둔 '관심' 수와 대표 사진 경로를 모은다. 공식 경쟁률과는 성격이
 다른 별개의 축이다. 경쟁률이 산림청이 매기는 미슐랭 스타라면 이쪽은 지도 별점에
 가깝고, 예약 플랫폼 안에서 찍힌 값이라 예약 의도에 더 붙어 있다.
 
@@ -96,8 +96,14 @@ def main():
             print(f"  {calls}회차 실패, 여기까지만 씁니다: {e}")
             break
         for x in rows:
-            if x.get("intrsCnt") is not None:
-                모은것[x["insttId"]] = x["intrsCnt"]
+            if x.get("intrsCnt") is None:
+                continue
+            모은것[x["insttId"]] = {
+                "관심": x["intrsCnt"],
+                # 이미지 CDN 은 ?rs= 로 가로폭을 조절해 준다. 경로만 들고 있다가
+                # 화면에서 필요한 크기를 붙여 쓴다.
+                "이미지": (x.get("rltvImageStoreCrse") or "").strip(),
+            }
         정체 = 0 if len(모은것) > before else 정체 + 1
         if calls % 50 == 0:
             print(f"  {calls:3d}회 · 누적 {len(모은것):3d}곳", flush=True)
@@ -109,18 +115,20 @@ def main():
         return 0
 
     payload = {"수집일": time.strftime("%Y-%m-%d"), "출처": "숲나들e 관심(찜) 수",
-               "시설": {k: {"관심": v} for k, v in 모은것.items()}}
+               "이미지CDN": "https://image.foresttrip.go.kr",
+               "시설": 모은것}
     tmp = OUT + ".tmp"
     with open(tmp, "w", encoding="utf-8") as fp:
         json.dump(payload, fp, ensure_ascii=False, separators=(",", ":"))
     os.replace(tmp, OUT)
 
     빠진 = 목표 - set(모은것)
-    상위 = sorted(((v, 이름.get(k, k)) for k, v in 모은것.items()
+    상위 = sorted(((v["관심"], 이름.get(k, k)) for k, v in 모은것.items()
                   if k in 목표), reverse=True)[:10]
+    사진 = sum(1 for k, v in 모은것.items() if k in 목표 and v["이미지"])
 
     print(f"\n완료: {len(모은것)}곳 (자연휴양림 {len(받은휴양림)}/{len(목표)}) · "
-          f"{calls}회 호출 · {time.time() - t0:.0f}초 · {OUT}")
+          f"대표사진 {사진}/{len(목표)} · {calls}회 호출 · {time.time() - t0:.0f}초")
     print("관심 상위 10곳")
     for v, n in 상위:
         print(f"  {v:>6,}  {n}")

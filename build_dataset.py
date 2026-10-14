@@ -33,6 +33,7 @@ POP = os.path.join(BASE, "data", "popularity.json")
 OUT = os.path.join(BASE, "forests.json")
 
 SOURCE = "숲나들e(foresttrip.go.kr) · 산림청 국립자연휴양림관리소"
+STALE_DAYS = 3            # 원본이 이보다 오래되면 빌드를 막는다
 
 구분_휴양림, 구분_기타 = 0, 1
 구분_라벨 = ["자연휴양림", "그 외 산림휴양시설"]
@@ -140,6 +141,17 @@ def main():
     if not raw:
         raise SystemExit(f"[중단] {RAW} 를 읽지 못했습니다. crawl_forest.py 를 먼저 실행하세요.")
     facilities = raw["시설"]
+
+    # data/ 는 .gitignore 대상이라 각자 노트북에만 남는다. 묵은 사본으로 빌드하면
+    # CI 가 받아 둔 최신 forests.json 을 과거로 덮어쓰게 된다. 실제로 한 번 그랬다.
+    수집 = (raw.get("수집일시") or "")[:10]
+    if 수집:
+        나이 = (datetime.date.today() - datetime.date.fromisoformat(수집)).days
+        if 나이 > STALE_DAYS:
+            raise SystemExit(
+                f"[중단] {RAW} 가 {나이}일 전({수집}) 자료입니다. "
+                f"crawl_forest.py 를 먼저 실행하세요.\n"
+                f"        묵은 자료로 만들면 자동 갱신분을 과거로 되돌리게 됩니다.")
 
     comp = load(COMP, {})
     pop = load(POP, {})

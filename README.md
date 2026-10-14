@@ -210,9 +210,8 @@ robots.txt 에서 전부 허용된 경로이고, 요청 간격을 0.4초 둡니�
 - `api/` 아래 파일은 서버 함수로 돕니다. 로그인·즐겨찾기가 여기 있습니다.
 - `.vercelignore` 로 수집 스크립트(`*.py`)와 원본 자료(`data/`), `db/` 는 올리지 않습니다.
 
-예전에 쓰던 GitHub Pages 주소(`pjungjin85-sketch.github.io/forest-trip-map/`)로 들어오면
-`index.html` 맨 앞의 스크립트가 Vercel 주소로 옮겨 줍니다. Pages 에는 서버가 없어
-로그인을 누르면 404 가 나기 때문입니다.
+예전에 쓰던 GitHub Pages(`pjungjin85-sketch.github.io/forest-trip-map/`)는 껐습니다.
+Pages 에는 서버가 없어 로그인·즐겨찾기(`/api`)가 404 가 나기 때문입니다.
 
 ## 로그인 · 즐겨찾기
 

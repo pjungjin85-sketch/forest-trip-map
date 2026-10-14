@@ -188,8 +188,13 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
   display:grid;grid-template-columns:96px minmax(0,1fr);gap:13px;
   background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
   padding:12px;cursor:pointer;
+  transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease,opacity .2s ease;
 }
-.row:hover{border-color:var(--forest-line)}
+/* 다음 예약 일정 카드(.scard)와 같은 떠오르는 효과 */
+@media (hover:hover){
+  .row:not(.is-lifted):hover{border-color:var(--forest);box-shadow:0 6px 18px rgba(30,149,117,.14);transform:translateY(-2px)}
+}
+.row:not(.is-lifted):active{transform:scale(.985)}
 .row__info{min-width:0}
 /* 대표 사진. 가로세로 4:3 으로 고정해 줄이 들쭉날쭉해지지 않게 한다. */
 .row__thumb{

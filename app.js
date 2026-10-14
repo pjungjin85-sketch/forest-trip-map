@@ -411,10 +411,14 @@ function resvDetail(f) {
    들어올 때 읽는다. 지도 키를 넣는 ?key= 와 겹치지 않게 기존 파라미터는 건드리지 않는다. */
 let 열린휴양림 = -1;
 
+/* 공유 주소는 /f/<id>/ 를 쓴다. 그 폴더의 HTML 이 휴양림별 OG 태그를 들고 있어서
+   카카오톡 미리보기에 그 휴양림 사진이 뜬다. ?f= 로도 들어올 수 있게 둔 건 그대로다. */
 function forestUrl(f) {
   const u = new URL(location.href);
-  u.searchParams.set('f', f.id);
+  u.search = '';
   u.hash = '';
+  // 본체가 /forest-trip-map/ 같은 하위 경로에 있을 수도 있다. 파일명만 떼고 f/ 를 붙인다.
+  u.pathname = u.pathname.replace(/[^/]*$/, '') + `f/${encodeURIComponent(f.id)}/`;
   return u.toString();
 }
 

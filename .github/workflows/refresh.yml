@@ -38,6 +38,10 @@ jobs:
       - name: 자료 가공
         run: python3 build_dataset.py
 
+      # 휴양림 이름이나 사진이 바뀌면 공유 미리보기도 따라 바뀌어야 한다.
+      - name: 공유 페이지 생성
+        run: python3 build_share_pages.py
+
       # 보고서는 파일로만 주고받는다. 휴양림 이름이 외부 사이트에서 오는 값이라
       # 커밋 메시지나 셸 명령에 직접 끼워 넣으면 주입에 취약해진다.
       - name: 변동 확인
@@ -64,7 +68,7 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add forests.json
+          git add forests.json f/
           if git diff --cached --quiet; then
             echo "forests.json 내용이 같아 커밋할 것이 없습니다."
             exit 0

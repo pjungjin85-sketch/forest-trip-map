@@ -39,6 +39,7 @@ const el = {
   sheetResv: $('sheetResv'), sheetIntro: $('sheetIntro'), sheetSpec: $('sheetSpec'),
   sheetActs: $('sheetActs'), controls: document.querySelector('.controls'),
   sheetShare: $('sheetShare'), shareLabel: $('shareLabel'),
+  auth: $('auth'), favChip: $('favChip'), favN: $('favN'), sheetFav: $('sheetFav'),
 };
 
 let D = null;          // forests.json 전체
@@ -53,7 +54,7 @@ let refitNext = true;  // 지도 뷰포트를 다시 맞출지. 위치 기준이
 // 자연휴양림만 다룬다. 숲나들e 목록에 함께 들어 있는 비휴양림 시설 27곳
 // (국립등산학교·동서트레일·산림레포츠파크 등)은 화면에 올리지 않는다.
 const 자연휴양림 = 0;
-const filter = { q: '', area: -1, city: '', tag: -1, sort: 'pop' };
+const filter = { q: '', area: -1, city: '', tag: -1, sort: 'pop', fav: false };
 
 /* ---------------- 마스트헤드 배경 사진 ---------------- */
 
@@ -567,6 +568,7 @@ function search() {
     if (filter.area >= 0 && f.권역 !== filter.area) continue;
     if (filter.city && `${f.권역}|${f.시군구}` !== filter.city) continue;
     if (filter.tag >= 0 && !f.태그.includes(filter.tag)) continue;
+    if (filter.fav && !favs.has(f.id)) continue;
     if (q && !hay[i].includes(q)) continue;
     results.push(i);
   }
@@ -596,6 +598,7 @@ function search() {
 function updateTally() {
   el.hit.textContent = results.length.toLocaleString('ko-KR');
   const bits = [];
+  if (filter.fav) bits.push('★ 즐겨찾기');
   if (filter.area >= 0) bits.push(D.권역라벨[filter.area]);
   if (filter.city) bits.push(filter.city.split('|')[1]);
   if (filter.tag >= 0) bits.push(D.태그라벨[filter.tag]);
@@ -788,6 +791,7 @@ function renderMore() {
           <span class="kind kind--${TYPE_CLASS[t]}">${esc(D.유형라벨[t])}</span>
           <span class="row__resv">${esc(D.예약라벨[f.예약])}</span>
           <span class="row__where">${esc(f.권역 >= 0 ? D.권역라벨[f.권역] : '')} ${esc(f.시군구)}</span>
+          ${starButton(f)}
         </div>
         ${priceBlock(f)}
         <p class="row__name">${highlight(f.이름)}</p>
@@ -1029,6 +1033,9 @@ function openSheet(i, origin) {
   if (f.전화) acts.push(`<a class="act" href="tel:${esc(f.전화.replace(/[^0-9]/g, ''))}">전화</a>`);
   el.sheetActs.innerHTML = acts.join('');
 
+  paintFav(el.sheetFav, favs.has(f.id));
+  el.sheetFav.dataset.id = f.id;
+
   const 이미열림 = !el.sheetWrap.hidden;
   열린휴양림 = i;
   setUrlForest(f);
@@ -1265,6 +1272,109 @@ function debounce(fn, ms) {
   return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
 }
 
+/* ---------------- 로그인 · 즐겨찾기 ---------------- */
+
+/* 로그인과 즐겨찾기는 서버(api/)에 있다. 로그인 쿠키는 HttpOnly 라 JS 가 읽을 수 없으니
+   로그인했는지는 /api/me 에 물어봐야 안다. 즐겨찾기는 휴양림 id 만 주고받는다. */
+let me = null;                 // { nickname } 또는 null
+const favs = new Set();        // 즐겨찾기한 휴양림 id
+
+const STAR_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>';
+
+function starButton(f) {
+  const on = favs.has(f.id);
+  return `<button class="star${on ? ' is-on' : ''}" type="button" data-id="${esc(f.id)}"
+    aria-pressed="${on}" aria-label="${esc(f.이름)} 즐겨찾기">${STAR_SVG}</button>`;
+}
+
+function paintFav(btn, on) {
+  btn.classList.toggle('is-on', on);
+  btn.setAttribute('aria-pressed', String(on));
+  const label = btn.querySelector('.fav__label');
+  if (label) label.textContent = on ? '저장됨' : '즐겨찾기';
+}
+
+/** 화면에 떠 있는 그 휴양림의 별(목록 줄·상세)과 칩 숫자를 한꺼번에 맞춘다. */
+function paintFavs(id) {
+  const on = favs.has(id);
+  el.list.querySelectorAll(`.star[data-id="${CSS.escape(id)}"]`).forEach((b) => paintFav(b, on));
+  if (el.sheetFav.dataset.id === id) paintFav(el.sheetFav, on);
+  el.favN.textContent = favs.size;
+}
+
+function renderAuth() {
+  el.auth.innerHTML = me
+    ? `<span class="auth__name">${esc(me.nickname || '로그인됨')}</span>
+       <button class="auth__btn" id="logout" type="button">로그아웃</button>`
+    : `<a class="auth__btn auth__btn--kakao" href="/api/auth/login">카카오 로그인</a>`;
+  el.auth.hidden = false;
+  el.favChip.hidden = !me;
+  if (!me && filter.fav) { filter.fav = false; search(); }
+}
+
+/** 카카오에서 돌아오면 주소에 ?login=ok|fail|cancel 이 붙어 있다. 읽고 지운다. */
+function takeLoginResult() {
+  const u = new URL(location.href);
+  const r = u.searchParams.get('login');
+  if (!r) return;
+  u.searchParams.delete('login');
+  history.replaceState(null, '', u.pathname + u.search);
+  if (r === 'fail') alert('로그인하지 못했어요. 잠시 뒤 다시 시도해 주세요.');
+}
+
+async function loadMe() {
+  takeLoginResult();
+  try {
+    const r = await fetch('/api/me');
+    // 정적 서버로만 띄웠을 때처럼 API 가 없으면 로그인 칸을 아예 보이지 않는다.
+    if (r.status !== 200 && r.status !== 401) return;
+    me = r.ok ? (await r.json()).user : null;
+  } catch (e) { return; }
+  if (me) {
+    try {
+      const r = await fetch('/api/favorites');
+      if (r.ok) (await r.json()).ids.forEach((id) => favs.add(id));
+    } catch (e) { /* 별만 비어 보인다 */ }
+  }
+  renderAuth();
+  el.favN.textContent = favs.size;
+  // 이미 그려 둔 별을 받아 온 즐겨찾기에 맞춘다.
+  el.list.querySelectorAll('.star').forEach((b) => paintFav(b, favs.has(b.dataset.id)));
+  if (el.sheetFav.dataset.id) paintFav(el.sheetFav, favs.has(el.sheetFav.dataset.id));
+  measureControls();
+}
+
+/** 별을 누르면 화면부터 바꾸고 서버에 보낸다(낙관적 업데이트). 실패하면 되돌린다. */
+async function toggleFav(id) {
+  if (!id) return;
+  if (!me) {
+    if (confirm('즐겨찾기는 카카오 로그인 후 쓸 수 있어요.\n로그인할까요?')) location.href = '/api/auth/login';
+    return;
+  }
+  const on = !favs.has(id);
+  if (on) favs.add(id); else favs.delete(id);
+  paintFavs(id);
+  try {
+    const r = await fetch(`/api/favorites/${encodeURIComponent(id)}`, { method: on ? 'PUT' : 'DELETE' });
+    if (r.status === 401) { me = null; renderAuth(); throw new Error('login'); }
+    if (!r.ok) throw new Error(String(r.status));
+  } catch (e) {
+    if (on) favs.delete(id); else favs.add(id);
+    paintFavs(id);
+    alert(e.message === 'login' ? '로그인이 풀렸어요. 다시 로그인해 주세요.' : '저장하지 못했어요. 잠시 뒤 다시 눌러 주세요.');
+  }
+}
+
+async function logout() {
+  try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) { /* 아래에서 화면은 비운다 */ }
+  me = null;
+  favs.clear();
+  renderAuth();
+  el.favN.textContent = 0;
+  el.list.querySelectorAll('.star.is-on').forEach((b) => paintFav(b, false));
+  paintFav(el.sheetFav, false);
+}
+
 /* ---------------- init ---------------- */
 
 function init() {
@@ -1310,11 +1420,14 @@ function init() {
   el.more.addEventListener('click', renderMore);
 
   el.list.addEventListener('click', (e) => {
+    const star = e.target.closest('.star');
+    if (star) { toggleFav(star.dataset.id); return; }   // 별은 상세를 열지 않는다
     const row = e.target.closest('.row');
     if (row) openSheet(results[+row.dataset.n], row);
   });
   el.list.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
+    if (e.target.closest('.star')) return;              // 버튼 자체의 Enter·Space 에 맡긴다
     const row = e.target.closest('.row');
     if (row) { e.preventDefault(); openSheet(results[+row.dataset.n], row); }
   });
@@ -1331,6 +1444,16 @@ function init() {
     btn.remove();
   });
   el.sheetShare.addEventListener('click', shareForest);
+  el.sheetFav.addEventListener('click', () => toggleFav(el.sheetFav.dataset.id));
+  el.favChip.addEventListener('click', () => {
+    filter.fav = !filter.fav;
+    el.favChip.setAttribute('aria-pressed', String(filter.fav));
+    refitNext = true;
+    search();
+  });
+  el.auth.addEventListener('click', (e) => {
+    if (e.target.closest('#logout')) logout();
+  });
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (!el.spopWrap.hidden) closeSchedPop(); else closeSheet();
@@ -1388,6 +1511,7 @@ function init() {
       search();
       measureControls();
       openFromUrl();
+      loadMe();
       tryBootMap();
     })
     .catch(() => {

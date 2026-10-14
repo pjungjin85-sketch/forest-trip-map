@@ -41,6 +41,8 @@
   <div class="masthead__art" id="masthArt" aria-hidden="true"></div>
   <div class="masthead__veil" aria-hidden="true"></div>
   <div class="masthead__inner">
+    <!-- 로그인 상태는 /api/me 에 물어본 뒤에 채운다. 답이 오기 전엔 숨겨 깜빡이지 않게. -->
+    <div class="auth" id="auth" hidden></div>
     <p class="eyebrow">숲나들e 예약정보 모아보기</p>
     <h1 class="title">전국 자연휴양림<br><em>한눈에</em></h1>
     <p class="masthead__meta" id="headMeta">자료를 불러오는 중</p>
@@ -94,6 +96,10 @@
           <span class="sel__cap">특징</span>
           <select class="sel__box" id="tagSel" aria-label="특징 선택"></select>
         </label>
+        <button class="favchip" id="favChip" type="button" aria-pressed="false" hidden>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>
+          <span class="favchip__label">즐겨찾기</span><span class="favchip__n" id="favN">0</span>
+        </button>
       </div>
     </div>
 
@@ -182,6 +188,10 @@
   <dl class="spec" id="sheetSpec"></dl>
   <div class="sheet__foot">
     <div class="sheet__acts" id="sheetActs"></div>
+    <button class="share fav" id="sheetFav" type="button" aria-pressed="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>
+      <span class="fav__label">즐겨찾기</span>
+    </button>
     <button class="share" id="sheetShare" type="button" aria-label="이 휴양림 공유하기">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>

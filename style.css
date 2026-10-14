@@ -73,6 +73,25 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
 }
 .title em{font-style:normal;color:var(--forest)}
 .masthead__meta{margin:12px 0 0;font-size:12px;color:var(--muted)}
+/* 로그인 · 로그아웃. 사진 쪽 오른쪽 위 모서리에 작게. */
+.auth{
+  position:absolute;top:14px;right:var(--pad);z-index:1;
+  display:flex;align-items:center;gap:8px;
+}
+.auth__name{
+  font-size:12px;font-weight:700;color:var(--ink-2);
+  background:rgba(255,255,255,.85);border-radius:999px;padding:5px 10px;
+  max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.auth__btn{
+  display:inline-block;font-size:12px;font-weight:700;text-decoration:none;cursor:pointer;
+  color:var(--ink);background:rgba(255,255,255,.92);
+  border:1px solid var(--line);border-radius:999px;padding:5px 12px;
+}
+.auth__btn:hover{border-color:var(--forest);color:var(--forest-deep)}
+/* 카카오 로그인 버튼 색(#FEE500 바탕, 85% 검정 글씨)은 카카오 디자인 가이드를 따른다. */
+.auth__btn--kakao{background:#FEE500;border-color:#FEE500;color:rgba(0,0,0,.85)}
+.auth__btn--kakao:hover{border-color:#E6CF00;color:rgba(0,0,0,.85)}
 
 /* ---------- 예약 일정 ---------- */
 .sched{background:var(--forest-pale);border-bottom:1px solid var(--forest-line)}
@@ -169,6 +188,18 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
 .sel__box:disabled{background-color:var(--paper);color:var(--muted);cursor:default;opacity:1}
 .sel--on .sel__box{border-color:var(--forest);background-color:var(--forest-pale);color:var(--forest-deep)}
 .sel--on .sel__cap{color:var(--forest-deep)}
+/* 즐겨찾기만 보기. 셀렉트와 높이를 맞춘 토글 칩. 로그인해야 보인다. */
+.favchip{
+  flex:0 0 auto;display:inline-flex;align-items:center;gap:4px;cursor:pointer;
+  padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);
+  font-size:13px;font-weight:700;color:var(--ink-2);white-space:nowrap;
+}
+.favchip svg{width:16px;height:16px;color:var(--star)}
+.favchip__n{font-size:11px;font-weight:700;color:var(--muted)}
+.favchip:hover{border-color:var(--forest)}
+.favchip[aria-pressed="true"]{border-color:var(--forest);background:var(--forest-pale);color:var(--forest-deep)}
+.favchip[aria-pressed="true"] svg{fill:var(--star)}
+.favchip[aria-pressed="true"] .favchip__n{color:var(--forest-deep)}
 
 .seg{display:flex;gap:0;border-bottom:1px solid var(--line);margin-top:2px}
 .seg__btn{
@@ -215,6 +246,17 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
 .kind--pub{background:var(--pub)}
 .kind--pri{background:var(--pri)}
 .row__where{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
+/* 목록 줄의 즐겨찾기 별. 누르기 쉽게 글자보다 넉넉한 칸을 준다. */
+.star{
+  flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
+  width:30px;height:30px;margin:-6px -6px -6px -2px;padding:0;
+  border:0;border-radius:999px;background:none;color:#B8BEC6;cursor:pointer;
+}
+.star svg{width:19px;height:19px;stroke-width:1.8;transition:transform .15s ease}
+.star:hover{color:var(--star)}
+.star.is-on{color:var(--star)}
+.star.is-on svg{fill:var(--star)}
+.star:active svg{transform:scale(.85)}
 .row__name{font-size:16px;font-weight:700;color:var(--ink-2);letter-spacing:-.02em;line-height:1.35}
 .row__name mark{background:#FFF0B8;color:inherit;padding:0 1px;border-radius:2px}
 .row__meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:8px}
@@ -453,6 +495,8 @@ body.is-modal{overflow:hidden}
 }
 .share:hover{border-color:var(--forest);color:var(--forest-deep)}
 .share svg{width:17px;height:17px;stroke-width:1.9}
+.fav.is-on{border-color:var(--star);color:#B9771C}
+.fav.is-on svg{fill:var(--star);color:var(--star)}
 .act{
   display:flex;align-items:center;justify-content:center;white-space:nowrap;text-align:center;text-decoration:none;border:1px solid var(--line);
   background:var(--surface);border-radius:10px;padding:11px 14px;font-size:13.5px;
@@ -485,6 +529,9 @@ body.is-modal{overflow:hidden}
   .sel__cap{left:10px}
   .sel__box{padding:20px 22px 8px 10px;font-size:13px;background-position:right 6px center;background-size:14px}
   .row{grid-template-columns:78px minmax(0,1fr);gap:11px}
+  /* 좁은 폰에서는 칩의 글자를 빼고 별과 숫자만 남겨 셀렉트 셋 자리를 지킨다. */
+  .favchip{padding:0 9px}
+  .favchip__label{display:none}
   .row__thumb{width:78px}
 }
 @media (max-width:640px){

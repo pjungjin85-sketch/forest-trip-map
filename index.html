@@ -2,6 +2,13 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<script>
+  // 예전 주소(GitHub Pages)로 들어오면 Vercel 의 같은 화면으로 옮긴다.
+  // Pages 에는 서버가 없어 로그인·즐겨찾기(/api)가 404 가 난다.
+  if (location.hostname.endsWith('github.io')) {
+    location.replace('https://forest-trip-map.vercel.app/' + location.search + location.hash);
+  }
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>전국 자연휴양림 한눈에 — 예약 일정·경쟁률·인기도</title>
 <meta name="description" content="전국 자연휴양림을 지도와 목록으로 한 번에. 선착순인지 추첨인지, 다음 예약 오픈이 언제인지, 산림청 공식 경쟁률과 숲나들e 관심 등록 수까지 함께 봅니다.">

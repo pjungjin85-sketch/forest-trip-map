@@ -168,7 +168,7 @@ robots.txt 에서 전부 허용된 경로이고, 요청 간격을 0.4초 둡니�
 [카카오 개발자센터](https://developers.kakao.com/console/app)에서:
 
 1. **앱 → 플랫폼 키 → JavaScript SDK 도메인**에 주소를 등록합니다.
-   경로 없이 도메인까지만 넣습니다 (`https://pjungjin85-sketch.github.io`).
+   경로 없이 도메인까지만 넣습니다 (`https://forest-trip-map.vercel.app`).
 2. **제품 설정 → 카카오맵 → 활성화 설정**을 **ON** 으로 바꿉니다.
 3. 같은 화면의 JavaScript 키를 `app.js` 의 `KAKAO_KEY` 에 넣습니다.
 
@@ -202,10 +202,63 @@ robots.txt 에서 전부 허용된 경로이고, 요청 간격을 0.4초 둡니�
 
 ## 배포
 
-GitHub Pages 용 정적 파일입니다. 저장소 루트를 그대로 배포하면 됩니다.
+**Vercel** 에 올라가 있습니다 (https://forest-trip-map.vercel.app).
+저장소가 Vercel 프로젝트에 연결되어 있어 `main` 에 푸시하면 자동으로 배포됩니다.
+매주 갱신 워크플로의 푸시도 같은 길로 배포됩니다.
+
+- 정적 파일(`index.html`, `app.js`, `forests.json` 등)은 그대로 내보냅니다.
+- `api/` 아래 파일은 서버 함수로 돕니다. 로그인·즐겨찾기가 여기 있습니다.
+- `.vercelignore` 로 수집 스크립트(`*.py`)와 원본 자료(`data/`), `db/` 는 올리지 않습니다.
+
+예전에 쓰던 GitHub Pages 주소(`pjungjin85-sketch.github.io/forest-trip-map/`)로 들어오면
+`index.html` 맨 앞의 스크립트가 Vercel 주소로 옮겨 줍니다. Pages 에는 서버가 없어
+로그인을 누르면 404 가 나기 때문입니다.
+
+## 로그인 · 즐겨찾기
+
+카카오 로그인으로 들어와 휴양림을 즐겨찾기해 두면, 어느 기기에서 로그인해도 같은 목록이 보입니다.
 
 ```
-index.html  style.css  app.js  forests.json  sheet.json  f/  hero/  icon-*.png  manifest.webmanifest
+브라우저 ── fetch('/api/…') ──▶ Vercel 함수(api/) ──▶ Neon Postgres
+                                   └──▶ 카카오(로그인할 때만)
+```
+
+| 파일 | 하는 일 |
+| --- | --- |
+| `api/auth/login.js` | state 를 쿠키에 넣고 카카오 로그인 화면으로 보냄 |
+| `api/auth/callback.js` | state 확인 → code 를 토큰으로 교환 → 회원번호·닉네임 → 사용자 저장 → 세션 쿠키 |
+| `api/auth/logout.js` | 세션을 DB 에서 지움 |
+| `api/me.js` | 로그인한 사람의 닉네임 (아니면 401) |
+| `api/favorites.js` | 내 즐겨찾기 휴양림 id 목록 |
+| `api/favorites/[id].js` | 즐겨찾기 넣기(PUT)·빼기(DELETE) |
+| `lib/session.js` | 세션 만들기·확인·삭제, 쿠키, 다른 사이트에서 온 쓰기 요청 거절 |
+| `db/schema.sql` | users · sessions · favorites 테이블 |
+
+- 카카오 토큰은 저장하지 않습니다. 회원번호와 닉네임만 둡니다.
+- 세션 쿠키는 `HttpOnly`·`SameSite=Lax` 이고, DB 에는 토큰의 sha256 해시만 둡니다.
+
+### 환경변수 (Vercel → Settings → Environment Variables)
+
+| 이름 | 값 |
+| --- | --- |
+| `DATABASE_URL` | Neon 연결 주소. Vercel Storage 에서 Neon 을 연결하면 자동으로 들어옵니다 |
+| `KAKAO_REST_KEY` | 카카오 앱의 REST API 키 |
+| `KAKAO_CLIENT_SECRET` | REST API 키 상세의 **카카오 로그인** 클라이언트 시크릿 (비즈니스 인증 것이 아님) |
+
+카카오 개발자센터의 **앱 → 플랫폼 키 → REST API 키** 에 Redirect URI 두 개를 등록해 둡니다.
+
+```
+https://forest-trip-map.vercel.app/api/auth/callback
+http://localhost:3000/api/auth/callback
+```
+
+### 로컬에서 돌리기
+
+```
+npm install
+vercel env pull .env.local     # 환경변수를 받아 온다 (커밋되지 않음)
+npm run migrate                # 테이블 만들기. 여러 번 돌려도 안전
+vercel dev --listen 3000       # http://localhost:3000 에서 API 까지 같이 뜬다
 ```
 
 ## 알아두실 점

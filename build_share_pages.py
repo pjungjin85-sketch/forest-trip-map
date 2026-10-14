@@ -28,7 +28,7 @@ SRC = os.path.join(BASE, "forests.json")
 OUT = os.path.join(BASE, "f")
 
 SITE = "https://forest-trip-map.vercel.app"
-FALLBACK_IMAGE = f"{SITE}/og.png"
+FALLBACK_IMAGE = f"{SITE}/og.png?v=2"
 IMAGE_RS = 1200          # CDN 이 내어주는 크기. 1200x899 로 OG 권장(1200x630)을 넘는다
 
 PAGE = """<!DOCTYPE html>

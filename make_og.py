@@ -23,7 +23,6 @@ OUT = os.path.join(BASE, "og.png")
 
 W, H = 1200, 630
 FOREST, DEEP, INK, MUTED = (34, 170, 134), (30, 149, 117), (46, 52, 64), (124, 131, 143)
-PALE, LINE = (234, 247, 242), (191, 230, 216)
 
 # 맥에 기본으로 깔린 글꼴. 6번이 Bold, 4번이 SemiBold.
 FONT_PATH = "/System/Library/Fonts/AppleSDGothicNeo.ttc"
@@ -114,9 +113,6 @@ def main():
 
     X, Y = 78, 118
     d.text((X, Y), EYEBROW, font=font(26), fill=DEEP)
-    bx = X + d.textlength(EYEBROW, font=font(26)) + 14
-    d.rounded_rectangle([bx, Y + 1, bx + 78, Y + 32], 16, fill=PALE, outline=LINE)
-    d.text((bx + 16, Y + 6), "비공식", font=font(19), fill=DEEP)
 
     d.text((X, Y + 58), TITLE_1, font=font(92), fill=INK)
     d.text((X, Y + 168), TITLE_2, font=font(92), fill=FOREST)

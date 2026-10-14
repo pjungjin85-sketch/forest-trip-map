@@ -15,6 +15,7 @@
   --gold:#C8892B;            /* 공식 경쟁률 배지 — 미슐랭 스타 쪽 */
   --gold-pale:#FBF4E6;
   --star:#F2A83B;            /* 인기도 별점 — 지도 별점 쪽 */
+  --heart:#E5484D;           /* 즐겨찾기. 별점과 헷갈리지 않게 하트·빨강으로 */
 
   --nat:#1E9575;             /* 국립 */
   --pub:#3D7BD1;             /* 공립 */
@@ -194,11 +195,11 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
   padding:0 12px;border:1px solid var(--line);border-radius:12px;background:var(--surface);
   font-size:13px;font-weight:700;color:var(--ink-2);white-space:nowrap;
 }
-.favchip svg{width:16px;height:16px;color:var(--star)}
+/* 칩의 하트는 늘 채워 둔다. 즐겨찾기 개수를 나타내는 표시라 켜짐·꺼짐과 무관하다. */
+.favchip svg{width:15px;height:15px;color:var(--heart);fill:var(--heart)}
 .favchip__n{font-size:11px;font-weight:700;color:var(--muted)}
 .favchip:hover{border-color:var(--forest)}
 .favchip[aria-pressed="true"]{border-color:var(--forest);background:var(--forest-pale);color:var(--forest-deep)}
-.favchip[aria-pressed="true"] svg{fill:var(--star)}
 .favchip[aria-pressed="true"] .favchip__n{color:var(--forest-deep)}
 
 .seg{display:flex;gap:0;border-bottom:1px solid var(--line);margin-top:2px}
@@ -246,17 +247,17 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
 .kind--pub{background:var(--pub)}
 .kind--pri{background:var(--pri)}
 .row__where{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
-/* 목록 줄의 즐겨찾기 별. 누르기 쉽게 글자보다 넉넉한 칸을 준다. */
-.star{
+/* 목록 줄의 즐겨찾기 하트. 누르기 쉽게 글자보다 넉넉한 칸을 준다. */
+.heart{
   flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;
   width:30px;height:30px;margin:-6px -6px -6px -2px;padding:0;
   border:0;border-radius:999px;background:none;color:#B8BEC6;cursor:pointer;
 }
-.star svg{width:19px;height:19px;stroke-width:1.8;transition:transform .15s ease}
-.star:hover{color:var(--star)}
-.star.is-on{color:var(--star)}
-.star.is-on svg{fill:var(--star)}
-.star:active svg{transform:scale(.85)}
+.heart svg{width:19px;height:19px;stroke-width:1.8;transition:transform .15s ease}
+.heart:hover{color:var(--heart)}
+.heart.is-on{color:var(--heart)}
+.heart.is-on svg{fill:var(--heart)}
+.heart:active svg{transform:scale(.85)}
 .row__name{font-size:16px;font-weight:700;color:var(--ink-2);letter-spacing:-.02em;line-height:1.35}
 .row__name mark{background:#FFF0B8;color:inherit;padding:0 1px;border-radius:2px}
 .row__meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:8px}
@@ -495,8 +496,8 @@ body.is-modal{overflow:hidden}
 }
 .share:hover{border-color:var(--forest);color:var(--forest-deep)}
 .share svg{width:17px;height:17px;stroke-width:1.9}
-.fav.is-on{border-color:var(--star);color:#B9771C}
-.fav.is-on svg{fill:var(--star);color:var(--star)}
+.fav.is-on{border-color:var(--heart);color:#C9353A}
+.fav.is-on svg{fill:var(--heart);color:var(--heart)}
 .act{
   display:flex;align-items:center;justify-content:center;white-space:nowrap;text-align:center;text-decoration:none;border:1px solid var(--line);
   background:var(--surface);border-radius:10px;padding:11px 14px;font-size:13.5px;

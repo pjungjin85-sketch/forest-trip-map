@@ -598,7 +598,7 @@ function search() {
 function updateTally() {
   el.hit.textContent = results.length.toLocaleString('ko-KR');
   const bits = [];
-  if (filter.fav) bits.push('★ 즐겨찾기');
+  if (filter.fav) bits.push('♥ 즐겨찾기');
   if (filter.area >= 0) bits.push(D.권역라벨[filter.area]);
   if (filter.city) bits.push(filter.city.split('|')[1]);
   if (filter.tag >= 0) bits.push(D.태그라벨[filter.tag]);
@@ -791,7 +791,7 @@ function renderMore() {
           <span class="kind kind--${TYPE_CLASS[t]}">${esc(D.유형라벨[t])}</span>
           <span class="row__resv">${esc(D.예약라벨[f.예약])}</span>
           <span class="row__where">${esc(f.권역 >= 0 ? D.권역라벨[f.권역] : '')} ${esc(f.시군구)}</span>
-          ${starButton(f)}
+          ${heartButton(f)}
         </div>
         ${priceBlock(f)}
         <p class="row__name">${highlight(f.이름)}</p>
@@ -1279,12 +1279,12 @@ function debounce(fn, ms) {
 let me = null;                 // { nickname } 또는 null
 const favs = new Set();        // 즐겨찾기한 휴양림 id
 
-const STAR_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>';
+const HEART_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3s-7.6-4.6-9.3-9.4C1.5 7.6 3.6 4.4 7.1 4.4c2.1 0 3.7 1.1 4.9 2.8 1.2-1.7 2.8-2.8 4.9-2.8 3.5 0 5.6 3.2 4.4 6.5-1.7 4.8-9.3 9.4-9.3 9.4z"/></svg>';
 
-function starButton(f) {
+function heartButton(f) {
   const on = favs.has(f.id);
-  return `<button class="star${on ? ' is-on' : ''}" type="button" data-id="${esc(f.id)}"
-    aria-pressed="${on}" aria-label="${esc(f.이름)} 즐겨찾기">${STAR_SVG}</button>`;
+  return `<button class="heart${on ? ' is-on' : ''}" type="button" data-id="${esc(f.id)}"
+    aria-pressed="${on}" aria-label="${esc(f.이름)} 즐겨찾기">${HEART_SVG}</button>`;
 }
 
 function paintFav(btn, on) {
@@ -1294,10 +1294,10 @@ function paintFav(btn, on) {
   if (label) label.textContent = on ? '저장됨' : '즐겨찾기';
 }
 
-/** 화면에 떠 있는 그 휴양림의 별(목록 줄·상세)과 칩 숫자를 한꺼번에 맞춘다. */
+/** 화면에 떠 있는 그 휴양림의 하트(목록 줄·상세)과 칩 숫자를 한꺼번에 맞춘다. */
 function paintFavs(id) {
   const on = favs.has(id);
-  el.list.querySelectorAll(`.star[data-id="${CSS.escape(id)}"]`).forEach((b) => paintFav(b, on));
+  el.list.querySelectorAll(`.heart[data-id="${CSS.escape(id)}"]`).forEach((b) => paintFav(b, on));
   if (el.sheetFav.dataset.id === id) paintFav(el.sheetFav, on);
   el.favN.textContent = favs.size;
 }
@@ -1334,17 +1334,17 @@ async function loadMe() {
     try {
       const r = await fetch('/api/favorites');
       if (r.ok) (await r.json()).ids.forEach((id) => favs.add(id));
-    } catch (e) { /* 별만 비어 보인다 */ }
+    } catch (e) { /* 하트만 비어 보인다 */ }
   }
   renderAuth();
   el.favN.textContent = favs.size;
-  // 이미 그려 둔 별을 받아 온 즐겨찾기에 맞춘다.
-  el.list.querySelectorAll('.star').forEach((b) => paintFav(b, favs.has(b.dataset.id)));
+  // 이미 그려 둔 하트를 받아 온 즐겨찾기에 맞춘다.
+  el.list.querySelectorAll('.heart').forEach((b) => paintFav(b, favs.has(b.dataset.id)));
   if (el.sheetFav.dataset.id) paintFav(el.sheetFav, favs.has(el.sheetFav.dataset.id));
   measureControls();
 }
 
-/** 별을 누르면 화면부터 바꾸고 서버에 보낸다(낙관적 업데이트). 실패하면 되돌린다. */
+/** 하트를 누르면 화면부터 바꾸고 서버에 보낸다(낙관적 업데이트). 실패하면 되돌린다. */
 async function toggleFav(id) {
   if (!id) return;
   if (!me) {
@@ -1371,7 +1371,7 @@ async function logout() {
   favs.clear();
   renderAuth();
   el.favN.textContent = 0;
-  el.list.querySelectorAll('.star.is-on').forEach((b) => paintFav(b, false));
+  el.list.querySelectorAll('.heart.is-on').forEach((b) => paintFav(b, false));
   paintFav(el.sheetFav, false);
 }
 
@@ -1420,14 +1420,14 @@ function init() {
   el.more.addEventListener('click', renderMore);
 
   el.list.addEventListener('click', (e) => {
-    const star = e.target.closest('.star');
-    if (star) { toggleFav(star.dataset.id); return; }   // 별은 상세를 열지 않는다
+    const heart = e.target.closest('.heart');
+    if (heart) { toggleFav(heart.dataset.id); return; }  // 하트는 상세를 열지 않는다
     const row = e.target.closest('.row');
     if (row) openSheet(results[+row.dataset.n], row);
   });
   el.list.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
-    if (e.target.closest('.star')) return;              // 버튼 자체의 Enter·Space 에 맡긴다
+    if (e.target.closest('.heart')) return;              // 버튼 자체의 Enter·Space 에 맡긴다
     const row = e.target.closest('.row');
     if (row) { e.preventDefault(); openSheet(results[+row.dataset.n], row); }
   });

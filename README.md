@@ -181,6 +181,9 @@ robots.txt 에서 전부 허용된 경로이고, 요청 간격을 0.4초 둡니�
 `.github/workflows/refresh.yml` 이 매주 월요일 06:00 KST 에 돕니다.
 필요한 비밀값이 없어 설정할 것이 없습니다.
 
+사진·이용요금(`crawl_details.py`)은 1년에 한두 번 바뀌는 값이라 **매달 첫째 월요일(1~7일)**과
+수동 실행 때만 받습니다. 받지 않는 주에는 직전 `sheet.json` 과 요금을 그대로 이어 씁니다.
+
 `diff_report.py` 가 이전 자료와 대조해 종료 코드로 판정합니다.
 
 | 코드 | 뜻 | 동작 |
@@ -200,7 +203,7 @@ robots.txt 에서 전부 허용된 경로이고, 요청 간격을 0.4초 둡니�
 GitHub Pages 용 정적 파일입니다. 저장소 루트를 그대로 배포하면 됩니다.
 
 ```
-index.html  style.css  app.js  forests.json  icon-*.png  manifest.webmanifest
+index.html  style.css  app.js  forests.json  sheet.json  f/  hero/  icon-*.png  manifest.webmanifest
 ```
 
 ## 알아두실 점

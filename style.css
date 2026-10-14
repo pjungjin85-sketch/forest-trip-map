@@ -356,7 +356,10 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
 .spec dt{color:var(--muted);white-space:nowrap}
 .spec dd{margin:0;color:var(--ink);font-weight:500}
 .sheet__foot{display:flex;align-items:stretch;gap:8px}
-.sheet__acts{display:flex;flex-wrap:wrap;gap:8px;flex:1 1 auto;min-width:0}
+/* 버튼 폭이 글자 길이를 따라가면 줄바꿈이 들쭉날쭉해진다(예약·길찾기 / 전화 혼자).
+   2칸 격자로 두고 예약은 첫 줄을 통째로, 나머지는 반씩 쓴다. 홀수로 남는 마지막 버튼은 한 줄을 다 쓴다. */
+.sheet__acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1 1 auto;min-width:0}
+.act--go,.act:last-child:nth-child(even){grid-column:1/-1}
 /* 공유는 맨 오른쪽 끝에. 예약·길찾기와 성격이 다른 동작이라 따로 떼어 둔다. */
 .share{
   flex:0 0 auto;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;
@@ -367,7 +370,7 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
 .share:hover{border-color:var(--forest);color:var(--forest-deep)}
 .share svg{width:17px;height:17px;stroke-width:1.9}
 .act{
-  flex:1 1 auto;text-align:center;text-decoration:none;border:1px solid var(--line);
+  display:flex;align-items:center;justify-content:center;white-space:nowrap;text-align:center;text-decoration:none;border:1px solid var(--line);
   background:var(--surface);border-radius:10px;padding:11px 14px;font-size:13.5px;
   font-weight:600;color:var(--ink);cursor:pointer;
 }

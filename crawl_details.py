@@ -42,6 +42,7 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
 
 DELAY = 0.4
 RETRIES = 4
+BR = "\x00"          # 칸 안의 줄바꿈 표시. 소스 HTML 의 줄바꿈과 구분하려고 따로 둔다
 MAX_PHOTOS = 12      # 상세 화면 가로 스크롤에 이 이상은 넘겨 보지 않는다
 
 
@@ -104,8 +105,10 @@ class Tables(HTMLParser):
         elif tag in ("td", "th") and t["row"] is not None:
             span = lambda k: max(1, min(50, int(re.sub(r"\D", "", a.get(k) or "1") or 1)))
             t["cell"] = {"t": [], "rs": span("rowspan"), "cs": span("colspan"), "th": tag == "th"}
-        elif tag == "br" and t["cell"] is not None:
-            t["cell"]["t"].append(" ")
+        elif tag in ("br", "p", "div", "li") and t["cell"] is not None:
+            # 한 칸에 객실 여러 개를 <p> 로 줄줄이 쓴 표가 있다(영인산·소백산 등).
+            # 그냥 이으면 '40,00050,000' 이 되므로 줄을 남겨 두고, 해석은 fees.py 가 한다.
+            t["cell"]["t"].append(BR)
 
     def handle_endtag(self, tag):
         if not self.stack:
@@ -115,7 +118,8 @@ class Tables(HTMLParser):
             t["in_caption"] = False
         elif tag in ("td", "th") and t["cell"] is not None and t["row"] is not None:
             c = t["cell"]
-            c["t"] = re.sub(r"\s+", " ", "".join(c["t"]).replace("\xa0", " ")).strip()
+            줄들 = (re.sub(r"\s+", " ", x).strip() for x in "".join(c["t"]).split(BR))
+            c["t"] = "\n".join(x for x in 줄들 if x)
             t["row"].append(c)
             t["cell"] = None
         elif tag == "tr" and t["row"] is not None:
@@ -134,7 +138,7 @@ class Tables(HTMLParser):
         if t["in_caption"]:
             t["caption"] += data
         elif t["cell"] is not None:
-            t["cell"]["t"].append(data)
+            t["cell"]["t"].append(data.replace(BR, ""))
 
 
 def expand(rows):

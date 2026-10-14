@@ -143,7 +143,16 @@
   <button class="sheet__close" id="sheetClose" type="button" aria-label="닫기">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
   </button>
-  <img class="sheet__photo" id="sheetPhoto" alt="" hidden>
+  <div class="gallery" id="sheetGallery" hidden>
+    <div class="gallery__track" id="sheetPhotos"></div>
+    <button class="gallery__nav gallery__nav--prev" id="photoPrev" type="button" aria-label="이전 사진">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+    </button>
+    <button class="gallery__nav gallery__nav--next" id="photoNext" type="button" aria-label="다음 사진">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+    </button>
+    <span class="gallery__count" id="photoCount" hidden></span>
+  </div>
   <p class="sheet__where" id="sheetWhere"></p>
   <h2 class="sheet__name" id="sheetName"></h2>
   <div class="sheet__badges" id="sheetBadges"></div>
@@ -162,6 +171,8 @@
       <p class="gauge__sub" id="sheetPopSub"></p>
     </div>
   </div>
+
+  <section class="fee" id="sheetFee" hidden></section>
 
   <p class="sheet__intro" id="sheetIntro"></p>
   <dl class="spec" id="sheetSpec"></dl>

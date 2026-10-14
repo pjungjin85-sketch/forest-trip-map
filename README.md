@@ -65,9 +65,10 @@
 ```
 crawl_forest.py      숲나들e 기본정보 -> data/raw_forests.json   (약 3분)
 crawl_popularity.py  숲나들e 관심수   -> data/popularity.json    (약 1분 30초)
+crawl_details.py     소개 사진·요금표 -> data/details.json       (약 5분 30초)
 data/competition.json  산림청 발표 경쟁률 (수기 관리)
         ↓
-build_dataset.py     대조·가공       -> forests.json
+build_dataset.py     대조·가공       -> forests.json, sheet.json   (요금 해석은 fees.py)
 ```
 
 의존성이 없습니다. 파이썬 표준 라이브러리만 씁니다.
@@ -75,6 +76,7 @@ build_dataset.py     대조·가공       -> forests.json
 ```bash
 python3 crawl_forest.py
 python3 crawl_popularity.py
+python3 crawl_details.py
 python3 build_dataset.py
 ```
 
@@ -109,6 +111,22 @@ robots.txt 에서 전부 허용된 경로이고, 요청 간격을 0.4초 둡니�
 
 **발표가 상위 몇 곳뿐이라 나머지는 `null` 로 둡니다.** 추정값을 만들지 않습니다.
 새 발표가 나오면 이 파일만 고치면 됩니다.
+
+### 사진·이용 요금 (`crawl_details.py`, `fees.py`)
+
+휴양림마다 숲나들e 안에 있는 작은 홈페이지의 **자연휴양림안내**(사진 슬라이드)와
+**이용요금** 화면을 읽습니다. 로그인 없이 열리고 robots.txt 에서 허용된 경로입니다.
+
+요금 표는 국립이면 형식이 하나(비수기 주중 / 성수기 및 주말)지만, 공립·사립은
+휴양림이 편집기로 직접 쓴 표라 칸 구성이 제각각입니다. 그래서 수집 단계에서는 표를
+칸 그대로 펴서 저장만 하고, `fees.py` 가 **머리줄 낱말**로 각 칸이 비수기·성수기 ×
+주중·주말 중 어디인지 읽어 냅니다. 입장료·주차료·침구·바비큐처럼 숙박이 아닌 줄은
+걸러 냅니다. 자연휴양림 172곳 중 **156곳**에 요금이 붙고, 나머지는 요금표가 없거나
+입장료 표만 있는 곳입니다. 틀린 값을 보여 주느니 비워 둡니다.
+
+목록에는 **최소~최대**(`forests.json`), 상세에는 **객실별 요금표**와 **사진 여러 장**
+(`sheet.json`)을 보여 줍니다. `sheet.json` 은 상세를 처음 열 때만 받습니다.
+요금표에는 원본 요금표 링크를 함께 걸어 실제 결제 금액은 거기서 확인하게 합니다.
 
 ### 인기도 (`crawl_popularity.py`)
 

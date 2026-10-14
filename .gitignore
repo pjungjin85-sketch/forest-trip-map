@@ -1,5 +1,6 @@
 data/raw_forests.json
 data/popularity.json
+data/details.json
 *.tmp
 .DS_Store
 __pycache__/

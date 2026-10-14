@@ -32,7 +32,8 @@ const el = {
   map: $('map'), mapkey: $('mapkey'), mapreset: $('mapreset'),
   keyInput: $('keyInput'), keySave: $('keySave'), originHint: $('originHint'),
   sheet: $('sheet'), sheetClose: $('sheetClose'), sheetWhere: $('sheetWhere'),
-  sheetPhoto: $('sheetPhoto'),
+  sheetGallery: $('sheetGallery'), sheetPhotos: $('sheetPhotos'), photoCount: $('photoCount'),
+  photoPrev: $('photoPrev'), photoNext: $('photoNext'), sheetFee: $('sheetFee'),
   sheetName: $('sheetName'), sheetBadges: $('sheetBadges'),
   sheetComp: $('sheetComp'), sheetCompSub: $('sheetCompSub'),
   sheetPop: $('sheetPop'), sheetPopSub: $('sheetPopSub'),
@@ -375,6 +376,122 @@ function thumb(f) {
             onerror="this.classList.add('row__thumb--none');this.removeAttribute('src')">`;
 }
 
+/* ---------------- 이용 요금 ---------------- */
+
+/** 75000 -> '7.5만'. 만 원 아래(야영데크 등)는 그대로 쓴다. */
+function man(v) {
+  if (v < 10000) return v.toLocaleString('ko-KR');
+  return `${(Math.round(v / 1000) / 10).toLocaleString('ko-KR')}만`;
+}
+
+/** 목록·상세 머리에 거는 최소~최대. 객실·야영데크를 통틀어 1박(1일) 요금이다. */
+function priceRange(f) {
+  const [lo, hi] = f.요금;
+  return lo === hi ? `${man(lo)}원` : `${man(lo)}~${man(hi)}원`;
+}
+
+function priceBlock(f) {
+  if (!f.요금) return '';
+  return `<span class="price">${priceRange(f)}</span>`;
+}
+
+/* sheet.json — 객실별 요금표와 사진 여러 장. 상세를 처음 열 때 한 번만 받는다. */
+let sheetData = null;
+function loadSheetData() {
+  if (!sheetData) {
+    sheetData = fetch('sheet.json')
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .catch(() => { sheetData = null; return {}; });   // 다음에 열 때 다시 받아 본다
+  }
+  return sheetData;
+}
+
+// [이름, 인원, 비수기주중, 비수기주말, 성수기주중, 성수기주말] 에서 요금 칸의 자리
+const FEE_KEYS = ['비주', '비말', '성주', '성말'];
+const FEE_LABEL = {
+  비주: '비수기 주중', 비말: '비수기 주말', 성주: '성수기 주중', 성말: '성수기 주말',
+  '비말성주성말': '성수기·주말', '성주성말': '성수기', '비주비말': '비수기',
+  '비주성주': '주중', '비말성말': '주말', '비주비말성주성말': '요금',
+};
+const FEE_FOLD = 8;    // 객실이 이보다 많으면 접어 둔다
+
+/** 모든 객실에서 값이 같은 칸끼리 묶는다. 국립은 '비수기 주중'과
+    '성수기 및 주말' 두 값뿐이라 네 칸으로 펼치면 같은 숫자가 세 번 반복된다. */
+function feeColumns(rooms) {
+  const groups = [];
+  FEE_KEYS.forEach((k, j) => {
+    const at = j + 2;
+    if (rooms.every((r) => r[at] == null)) return;
+    const same = groups.find((g) => rooms.every((r) => r[g.at[0]] === r[at]));
+    if (same) { same.keys.push(k); same.at.push(at); } else groups.push({ keys: [k], at: [at] });
+  });
+  return groups.map((g) => ({
+    at: g.at[0],
+    label: FEE_LABEL[g.keys.join('')] || g.keys.map((k) => FEE_LABEL[k]).join(' / '),
+  }));
+}
+
+function feeHtml(f, rooms) {
+  const cols = feeColumns(rooms);
+  const head = `<tr><th scope="col">객실</th>${cols.map((c) => `<th scope="col">${esc(c.label)}</th>`).join('')}</tr>`;
+  const body = rooms.map((r, n) => `<tr${n >= FEE_FOLD ? ' class="fee__more" hidden' : ''}>
+      <th scope="row">${esc(r[0] || '—')}${r[1] ? `<span>${esc(r[1])}</span>` : ''}</th>
+      ${cols.map((c) => `<td>${r[c.at] == null ? '—' : r[c.at].toLocaleString('ko-KR')}</td>`).join('')}
+    </tr>`).join('');
+  const feeUrl = 'https://www.foresttrip.go.kr/pot/rm/ug/selectFcltUseGdncView.do'
+    + `?hmpgId=${encodeURIComponent(f.id)}&menuId=004002005&ruleId=205`;
+  return `<p class="fee__head">이용 요금<b>${priceRange(f)}</b></p>
+    <div class="fee__scroll"><table class="fee__table">
+      <thead>${head}</thead><tbody>${body}</tbody>
+    </table></div>
+    ${rooms.length > FEE_FOLD
+      ? `<button class="fee__toggle" type="button">객실 ${rooms.length}개 모두 보기</button>` : ''}
+    <p class="fee__note">1박(1일) 기준, 단위 원. 숲나들e 요금 안내 표를 옮긴 것이라
+      실제 결제 금액은 <a href="${esc(feeUrl)}" target="_blank" rel="noopener">원본 요금표</a>에서
+      확인하세요. 성수기 기간은 휴양림마다 다릅니다.</p>`;
+}
+
+function renderFee(f, info) {
+  const rooms = (info && info.객실) || [];
+  if (!f.요금 || !rooms.length) {
+    el.sheetFee.hidden = true;
+    el.sheetFee.innerHTML = '';
+    return;
+  }
+  el.sheetFee.innerHTML = feeHtml(f, rooms);
+  el.sheetFee.hidden = false;
+}
+
+/* ---------------- 상세 사진 슬라이드 ---------------- */
+
+function renderPhotos(srcs) {
+  el.sheetGallery.hidden = !srcs.length;
+  el.sheetPhotos.innerHTML = srcs.map((src, n) =>
+    `<img class="gallery__img" src="${esc(src)}" alt="" ${n ? 'loading="lazy"' : ''} decoding="async"
+       onerror="this.remove()">`).join('');
+  el.sheetPhotos.scrollLeft = 0;
+  updatePhotoCount();
+}
+
+function photoIndex() {
+  const w = el.sheetPhotos.clientWidth || 1;
+  return Math.round(el.sheetPhotos.scrollLeft / w);
+}
+
+function updatePhotoCount() {
+  const n = el.sheetPhotos.children.length;
+  const i = photoIndex();
+  el.photoCount.hidden = n < 2;
+  el.photoCount.textContent = `${i + 1} / ${n}`;
+  el.photoPrev.hidden = n < 2 || i <= 0;
+  el.photoNext.hidden = n < 2 || i >= n - 1;
+}
+
+function stepPhoto(d) {
+  const w = el.sheetPhotos.clientWidth;
+  el.sheetPhotos.scrollTo({ left: (photoIndex() + d) * w, behavior: 'smooth' });
+}
+
 function renderMore() {
   const slice = results.slice(shown, shown + PAGE);
   const html = slice.map((i, n) => {
@@ -389,7 +506,7 @@ function renderMore() {
           <span class="row__where">${esc(f.권역 >= 0 ? D.권역라벨[f.권역] : '')} ${esc(f.시군구)}</span>
         </div>
         <p class="row__name">${highlight(f.이름)}</p>
-        <div class="row__meta">${popBlock(f)}${compBlock(f)}</div>
+        <div class="row__meta">${priceBlock(f)}${popBlock(f)}${compBlock(f)}</div>
       </div>
     </li>`;
   }).join('');
@@ -543,14 +660,16 @@ function openSheet(i) {
   const f = F[i];
   const t = f.유형 >= 0 ? f.유형 : 0;
 
+  // 대표 사진 한 장을 먼저 깔고, sheet.json 이 오면 소개 사진 여러 장으로 바꾼다.
   // 목록 썸네일은 320px 로 받았으니 상세는 더 큰 걸 받는다.
-  if (f.사진 && D.이미지CDN) {
-    el.sheetPhoto.src = `${D.이미지CDN}${f.사진}?rs=800`;
-    el.sheetPhoto.hidden = false;
-  } else {
-    el.sheetPhoto.removeAttribute('src');
-    el.sheetPhoto.hidden = true;
-  }
+  renderPhotos(f.사진 && D.이미지CDN ? [`${D.이미지CDN}${f.사진}?rs=800`] : []);
+  renderFee(f, null);
+  loadSheetData().then((all) => {
+    if (열린휴양림 !== i) return;          // 그사이 다른 휴양림을 열었다
+    const info = all[f.id];
+    if (info && info.사진 && info.사진.length) renderPhotos(info.사진);
+    renderFee(f, info);
+  });
 
   el.sheetWhere.textContent = `${f.권역 >= 0 ? D.권역라벨[f.권역] : ''} · ${f.시도} ${f.시군구}`;
   el.sheetName.textContent = f.이름;
@@ -887,6 +1006,15 @@ function init() {
   });
 
   el.sheetClose.addEventListener('click', closeSheet);
+  el.sheetPhotos.addEventListener('scroll', debounce(updatePhotoCount, 60), { passive: true });
+  el.photoPrev.addEventListener('click', () => stepPhoto(-1));
+  el.photoNext.addEventListener('click', () => stepPhoto(1));
+  el.sheetFee.addEventListener('click', (e) => {
+    const btn = e.target.closest('.fee__toggle');
+    if (!btn) return;
+    el.sheetFee.querySelectorAll('.fee__more').forEach((tr) => { tr.hidden = false; });
+    btn.remove();
+  });
   el.sheetShare.addEventListener('click', shareForest);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
 

@@ -16,7 +16,7 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 40
 
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +34,11 @@ jobs:
       # 키가 필요 없다. 실패해도 기존 인기도를 그대로 두고 조용히 끝난다.
       - name: 인기도(관심 등록 수) 수집
         run: python3 crawl_popularity.py
+
+      # 휴양림 172곳의 소개 사진과 이용요금 표. 5~6분 걸린다.
+      # 실패해도 조용히 끝나고, 그러면 build_dataset.py 가 직전 요금·사진을 이어 쓴다.
+      - name: 사진·이용요금 수집
+        run: python3 crawl_details.py
 
       - name: 자료 가공
         run: python3 build_dataset.py
@@ -68,7 +73,7 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add forests.json f/
+          git add forests.json sheet.json f/
           if git diff --cached --quiet; then
             echo "forests.json 내용이 같아 커밋할 것이 없습니다."
             exit 0

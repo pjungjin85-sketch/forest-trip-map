@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-"""data/raw_forests.json + competition.json + popularity.json -> forests.json
+"""data/raw_forests.json + competition.json + popularity.json + details.json
+   -> forests.json, sheet.json
 
 화면이 바로 먹을 수 있는 형태로 가공한다. 네트워크는 쓰지 않는다.
 
@@ -17,6 +18,10 @@
    모자란다. 소개글과 이름에서 키워드를 뽑아 채운다. 원본 태그가 있으면 함께 쓴다.
 
 경쟁률은 공식 발표가 상위 5곳뿐이라 나머지는 null 로 둔다. 추정값을 만들지 않는다.
+
+요금은 목록에 최소~최대만 forests.json 에 싣고, 객실별 표와 사진 여러 장은
+sheet.json 으로 따로 뺀다. 상세를 처음 열 때만 받으면 되는 값이라 첫 화면을
+무겁게 할 이유가 없다. 표 해석 규칙은 fees.py 에 있다.
 """
 
 import datetime
@@ -26,11 +31,15 @@ import os
 import re
 import sys
 
+import fees
+
 BASE = os.path.dirname(os.path.abspath(__file__))
 RAW = os.path.join(BASE, "data", "raw_forests.json")
 COMP = os.path.join(BASE, "data", "competition.json")
 POP = os.path.join(BASE, "data", "popularity.json")
+DETAILS = os.path.join(BASE, "data", "details.json")
 OUT = os.path.join(BASE, "forests.json")
+SHEET = os.path.join(BASE, "sheet.json")
 
 SOURCE = "숲나들e(foresttrip.go.kr) · 산림청 국립자연휴양림관리소"
 STALE_DAYS = 3            # 원본이 이보다 오래되면 빌드를 막는다
@@ -153,6 +162,15 @@ def main():
                 f"crawl_forest.py 를 먼저 실행하세요.\n"
                 f"        묵은 자료로 만들면 자동 갱신분을 과거로 되돌리게 됩니다.")
 
+    # 사진·요금은 data/details.json 에서 온다. 없으면(CI 에서 수집이 통째로 실패한 경우)
+    # 직전 sheet.json 과 forests.json 의 요금을 그대로 이어 쓴다. 없어서 지우는 건 안 된다.
+    details = (load(DETAILS) or {}).get("시설")
+    이전요금 = {}
+    if details is None:
+        print(f"[경고] {DETAILS} 가 없어 사진·요금은 직전 값을 씁니다.")
+        이전요금 = {r["id"]: r.get("요금") for r in (load(OUT) or {}).get("휴양림", [])}
+    sheet = {}
+
     comp = load(COMP, {})
     pop = load(POP, {})
     pop_by_id = (pop.get("시설") or {})
@@ -194,6 +212,21 @@ def main():
         p = pop_by_id.get(f["insttId"], {})
         관심, 사진 = p.get("관심"), p.get("이미지") or ""
 
+        if details is None:
+            요금 = 이전요금.get(f["insttId"])
+        else:
+            dv = details.get(f["insttId"]) or {}
+            객실 = fees.휴양림요금(dv.get("요금표") or [])
+            요금 = fees.범위(객실)
+            사진들 = [x["src"] for x in dv.get("사진") or []]
+            if 객실 or 사진들:
+                sheet[f["insttId"]] = {
+                    "사진": 사진들,
+                    # [이름, 인원, 비수기주중, 비수기주말, 성수기주중, 성수기주말] — 없는 칸은 null
+                    "객실": [[r["이름"], r["인원"]] + [r["요금"].get(k) for k in fees.경우들]
+                             for r in 객실],
+                }
+
         records.append({
             "id": f["insttId"],
             "이름": f["이름"] or f["별칭"],
@@ -218,6 +251,7 @@ def main():
             "관심": 관심,
             "사진": 사진,
             "별점": 별점(관심, 최소log, 최대log),
+            "요금": 요금,
             "홈": f.get("홈페이지") or "",
         })
 
@@ -250,6 +284,12 @@ def main():
         json.dump(payload, fp, ensure_ascii=False, separators=(",", ":"))
     os.replace(tmp, OUT)
 
+    if details is not None:
+        tmp = SHEET + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fp:
+            json.dump(sheet, fp, ensure_ascii=False, separators=(",", ":"))
+        os.replace(tmp, SHEET)
+
     # --- 사람이 눈으로 보는 리포트 ---------------------------------------
     import collections
     c구분 = collections.Counter(구분_라벨[r["구분"]] for r in records)
@@ -269,10 +309,13 @@ def main():
           f"(발표 {len(comp_map)}건)")
     print(f"  인기도      : {sum(1 for r in records if r['별점'] is not None)}곳")
     print(f"  대표사진    : {sum(1 for r in 휴양림만 if r['사진'])}/{len(휴양림만)}곳")
+    print(f"  요금        : {sum(1 for r in 휴양림만 if r['요금'])}/{len(휴양림만)}곳")
     print(f"  태그 {len(태그들)}종 (특징 {특징수} + 원본 {len(태그들) - 특징수}) · "
           f"태그 없는 곳 {sum(1 for r in records if not r['태그'])}곳")
     print(f"  좌표 없음 {sum(1 for r in records if r['y'] is None)}곳")
     print(f"\n출력: {OUT} ({os.path.getsize(OUT) / 1024:.0f} KB)")
+    if os.path.exists(SHEET):
+        print(f"      {SHEET} ({os.path.getsize(SHEET) / 1024:.0f} KB)")
     return 0
 
 

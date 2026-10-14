@@ -144,19 +144,9 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
 .tally__of{font-size:12px;color:var(--muted);margin-left:6px}
 
 .filters{margin-top:10px}
-.chips{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:8px}
-.chips::-webkit-scrollbar{display:none}
-.chips--sub .chip,.chips--sort .chip{font-size:12px;padding:5px 10px}
-.chip{
-  flex:0 0 auto;border:1px solid var(--line);background:var(--surface);
-  border-radius:999px;padding:7px 13px;font-size:13px;font-weight:500;
-  color:var(--ink);cursor:pointer;white-space:nowrap;
-}
-.chip:hover{border-color:var(--forest-line)}
-.chip.is-on{background:var(--forest);border-color:var(--forest);color:#fff;font-weight:700}
-.chips--sort .chip.is-on{background:var(--ink-2);border-color:var(--ink-2)}
 
-/* 지역 선택 — 권역과 시·군·구 두 단계.
+/* 권역 · 시·군·구 · 특징 세 셀렉트를 한 줄에.
+   지역 선택 — 권역과 시·군·구 두 단계.
    휴양림이 172곳이라 시군구가 118개나 되는데, 칩으로 늘어놓으면 가로로 한없이
    길어져 고를 수가 없다. 셀렉트 박스는 목록을 접어 두니 개수가 늘어도 괜찮다. */
 .selects{display:flex;gap:8px;padding-bottom:8px}
@@ -471,6 +461,10 @@ body.is-modal{overflow:hidden}
 
 /* ---------- desktop ---------- */
 @media (max-width:420px){
+  /* 셀렉트 셋이 한 줄에 서도록 여백과 글자를 조금 줄인다 */
+  .selects{gap:6px}
+  .sel__cap{left:10px}
+  .sel__box{padding:20px 22px 8px 10px;font-size:13px;background-position:right 6px center;background-size:14px}
   .row{grid-template-columns:78px minmax(0,1fr);gap:11px}
   .row__thumb{width:78px}
 }

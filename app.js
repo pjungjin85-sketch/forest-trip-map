@@ -12,11 +12,6 @@ const KOREA = { lat: 36.35, lng: 127.9 };          // 전국이 한 화면에 �
 const TYPE_COLOR = ['#1E9575', '#3D7BD1', '#8A6BC4'];   // 국립 / 공립 / 사립
 const TYPE_CLASS = ['nat', 'pub', 'pri'];
 
-const SORTS = [
-  { k: 'pop',  label: '인기순' },
-  { k: 'comp', label: '공식 경쟁률순' },
-  { k: 'name', label: '이름순' },
-];
 
 const $ = (id) => document.getElementById(id);
 const el = {
@@ -26,7 +21,7 @@ const el = {
   schedCards: $('schedCards'), schedSum: $('schedSum'),
   schedToggle: $('schedToggle'), schedBody: $('schedBody'),
   areaSel: $('areaSel'), citySel: $('citySel'),
-  tagChips: $('tagChips'), sortChips: $('sortChips'),
+  tagSel: $('tagSel'),
   tabList: $('tabList'), tabMap: $('tabMap'), paneList: $('paneList'), paneMap: $('paneMap'),
   list: $('list'), more: $('more'), empty: $('empty'),
   map: $('map'), mapkey: $('mapkey'), mapreset: $('mapreset'),
@@ -586,10 +581,9 @@ function search() {
       if (y == null) return -1;
       return y - x;
     });
-  } else if (filter.sort === 'pop') {
-    results.sort((a, b) => popOf(b) - popOf(a) || byName(a, b));
   } else {
-    results.sort(byName);
+    // 정렬은 고르는 게 아니라 늘 인기순이다. 인기도가 아직 없을 때만 경쟁률순으로 대신한다.
+    results.sort((a, b) => popOf(b) - popOf(a) || byName(a, b));
   }
 
   shown = 0;
@@ -1148,9 +1142,6 @@ function tryBootMap() {
 
 /* ---------------- UI 조립 ---------------- */
 
-function chip(label, on) {
-  return `<button class="chip${on ? ' is-on' : ''}" type="button">${esc(label)}</button>`;
-}
 
 /* ---- 지역 선택 (권역 -> 시·군·구) ---- */
 
@@ -1161,10 +1152,10 @@ function buildAreaSelect() {
   F.forEach((f) => { if (inKind(f) && f.권역 >= 0) 수[f.권역]++; });
 
   const 전체 = 수.reduce((a, b) => a + b, 0);
-  let html = `<option value="-1">전국 (${전체.toLocaleString('ko-KR')})</option>`;
+  let html = opt('-1', '전국', 전체);
   D.권역라벨.forEach((label, i) => {
     if (!수[i]) return;
-    html += `<option value="${i}">${esc(label)} (${수[i]})</option>`;
+    html += opt(i, label, 수[i]);
   });
   el.areaSel.innerHTML = html;
   el.areaSel.value = String(filter.area);
@@ -1181,32 +1172,48 @@ function buildCitySelect() {
   });
 
   const 전체 = [...수.values()].reduce((a, b) => a + b, 0);
-  const opt = (k) => {
-    const nm = k.split('|')[1];
-    return `<option value="${esc(k)}">${esc(nm)} (${수.get(k)})</option>`;
-  };
+  const one = (k) => opt(k, k.split('|')[1], 수.get(k));
   const 가나다 = (a, b) => a.split('|')[1].localeCompare(b.split('|')[1], 'ko');
 
-  let html = `<option value="">전체 (${전체.toLocaleString('ko-KR')})</option>`;
+  let html = opt('', '전체', 전체);
   if (filter.area >= 0) {
-    html += [...수.keys()].sort(가나다).map(opt).join('');
+    html += [...수.keys()].sort(가나다).map(one).join('');
   } else {
     // 전국일 때는 118개가 한 줄로 쏟아진다. 권역으로 묶어 두면 훑기 쉽고,
     // 같은 이름이 둘 있어도(고성군) 어느 권역 것인지 바로 보인다.
     D.권역라벨.forEach((label, i) => {
       const keys = [...수.keys()].filter((k) => k.startsWith(`${i}|`)).sort(가나다);
       if (!keys.length) return;
-      html += `<optgroup label="${esc(label)}">${keys.map(opt).join('')}</optgroup>`;
+      html += `<optgroup label="${esc(label)}">${keys.map(one).join('')}</optgroup>`;
     });
   }
   el.citySel.innerHTML = html;
   el.citySel.value = 수.has(filter.city) ? filter.city : (filter.city = '');
 }
 
+/** 셀렉트 항목. 펼친 목록에는 '계곡 (38)' 처럼 개수를 붙이고, 고른 뒤 닫힌 칸에는
+    '계곡' 만 보인다(compactSelects). 휴대폰에서 칸 셋이 한 줄에 서면 개수까지는 안 들어간다.
+    고른 결과의 개수는 바로 위 '○○곳' 에 나온다. */
+function opt(value, label, n) {
+  return `<option value="${esc(String(value))}" data-l="${esc(label)}" data-n="${n.toLocaleString('ko-KR')}">`
+       + `${esc(label)} (${n.toLocaleString('ko-KR')})</option>`;
+}
+
+function compactSelects() {
+  [el.areaSel, el.citySel, el.tagSel].forEach((sel) => {
+    for (const o of sel.options) {
+      if (!o.dataset.l) continue;
+      o.textContent = o.selected ? o.dataset.l : `${o.dataset.l} (${o.dataset.n})`;
+    }
+  });
+}
+
 /** 고른 값이 있으면 셀렉트를 초록으로 칠해, 필터가 걸려 있다는 걸 눈에 띄게 한다. */
 function markSelects() {
+  compactSelects();
   el.areaSel.closest('.sel').classList.toggle('sel--on', filter.area >= 0);
   el.citySel.closest('.sel').classList.toggle('sel--on', !!filter.city);
+  el.tagSel.closest('.sel').classList.toggle('sel--on', filter.tag >= 0);
 }
 
 function refreshRegion() {
@@ -1215,42 +1222,23 @@ function refreshRegion() {
   markSelects();
 }
 
-function buildSortChips() {
-  el.sortChips.innerHTML = SORTS.map((s) => chip(s.label, filter.sort === s.k)).join('');
-  el.sortChips.querySelectorAll('.chip').forEach((b, n) => {
-    b.addEventListener('click', () => {
-      filter.sort = SORTS[n].k;
-      el.sortChips.querySelectorAll('.chip').forEach((x, k) => x.classList.toggle('is-on', k === n));
-      search();
-    });
-  });
-}
-
-/** 필터 칩에 쓸 태그. 숲나들e 원본 태그는 '등산'·'등산로'처럼 비슷한 게 여럿이라
-    칩으로 세우면 고르기 어렵다. 앞쪽에 깔아 둔 특징 태그만 쓰고, 원본 태그는
-    상세 화면 배지로만 보여 준다. 해당하는 곳이 너무 적은 특징도 뺀다. */
-function topTags(limit) {
+/** 특징 셀렉트에 쓸 태그. 숲나들e 원본 태그는 '등산'·'등산로'처럼 비슷한 게 여럿이라
+    고르기 어렵다. 앞쪽에 깔아 둔 특징 태그만 쓰고, 원본 태그는 상세 화면 배지로만
+    보여 준다. 해당하는 곳이 너무 적은 특징도 뺀다. 개수는 권역 셀렉트처럼 전국 기준. */
+function topTags() {
   const 특징수 = D.특징태그수 || D.태그라벨.length;
   const count = D.태그라벨.map(() => 0);
-  F.forEach((f) => f.태그.forEach((n) => { count[n]++; }));
+  F.forEach((f) => { if (inKind(f)) f.태그.forEach((n) => { count[n]++; }); });
   return D.태그라벨
     .map((t, n) => ({ t, n, c: count[n] }))
     .filter((x) => x.n < 특징수 && x.c >= 5)
-    .sort((a, b) => b.c - a.c)
-    .slice(0, limit);
+    .sort((a, b) => b.c - a.c);
 }
 
-function buildTagChips() {
-  const tags = topTags(14);
-  const items = [{ v: -1, t: '특징 전체' }].concat(tags.map((x) => ({ v: x.n, t: x.t })));
-  el.tagChips.innerHTML = items.map((it) => chip(it.t, filter.tag === it.v)).join('');
-  el.tagChips.querySelectorAll('.chip').forEach((b, n) => {
-    b.addEventListener('click', () => {
-      filter.tag = items[n].v;
-      el.tagChips.querySelectorAll('.chip').forEach((x, k) => x.classList.toggle('is-on', k === n));
-      search();
-    });
-  });
+function buildTagSelect() {
+  const 전체 = F.filter(inKind).length;
+  el.tagSel.innerHTML = opt('-1', '전체', 전체) + topTags().map((x) => opt(x.n, x.t, x.c)).join('');
+  el.tagSel.value = String(filter.tag);
 }
 
 function setPane(which) {
@@ -1298,6 +1286,12 @@ function init() {
     filter.city = '';                      // 권역이 바뀌면 시·군·구는 처음으로
     refitNext = true;
     buildCitySelect();
+    markSelects();
+    search();
+  });
+  el.tagSel.addEventListener('change', () => {
+    filter.tag = +el.tagSel.value;
+    refitNext = true;
     markSelects();
     search();
   });
@@ -1388,9 +1382,8 @@ function init() {
       인기도있음 = F.some((f) => f.별점 != null);
       if (!인기도있음) filter.sort = 'comp';
 
+      buildTagSelect();
       refreshRegion();
-      buildTagChips();
-      buildSortChips();
 
       search();
       measureControls();

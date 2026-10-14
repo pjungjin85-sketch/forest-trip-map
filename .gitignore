@@ -6,3 +6,6 @@ data/details.json
 __pycache__/
 .env
 .vercel
+node_modules/
+.env*.local
+.env*

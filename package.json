@@ -1,0 +1,14 @@
+{
+  "name": "forest-trip-map",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "24.x"
+  },
+  "scripts": {
+    "migrate": "node --env-file=.env.local db/migrate.js"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.2.0"
+  }
+}

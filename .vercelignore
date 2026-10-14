@@ -5,3 +5,5 @@ data/
 .github/
 README.md
 *_CONVERSATION_LOG.md
+# DB 스키마와 마이그레이션 스크립트는 로컬에서만 돌린다.
+db/

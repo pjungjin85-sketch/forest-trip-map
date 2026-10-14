@@ -460,7 +460,21 @@ body.is-modal{overflow:hidden}
 .foot__meta{max-width:1200px;margin:0 auto;font-size:11px;color:var(--muted)}
 
 /* ---------- desktop ---------- */
+/* 아이폰 SE 1세대 같은 320px 폭. 시트 안쪽 여백(--pad)까지 줄여야 4칸 요금표가 들어간다. */
+@media (max-width:340px){
+  .sheet{--pad:12px}
+  .fee{padding:10px 6px}
+  .fee__table th,.fee__table td{padding:7px 1px}
+  .fee__table tbody th{min-width:4.5em}
+}
 @media (max-width:420px){
+  /* 휴양림 상세의 4칸 요금표(공립 몇 곳)가 360px 폰에서 마지막 칸(성수기 주말)이
+     잘리지 않게, 팝업 바깥 여백과 표 글자를 조금 줄인다. */
+  .sheet-wrap{padding:16px 8px}
+  .fee{padding:12px 10px}
+  .fee__table th,.fee__table td{padding:7px 2px}
+  .fee__table td{font-size:11.5px}
+  .fee__table thead th{font-size:10.5px}
   /* 셀렉트 셋이 한 줄에 서도록 여백과 글자를 조금 줄인다 */
   .selects{gap:6px}
   .sel__cap{left:10px}

@@ -288,7 +288,9 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
 @media (hover:hover) and (pointer:fine){ .gallery__nav{display:block} }
 
 /* 이용 요금 — 목록에는 최소~최대, 상세에는 객실별 표 */
-.price{font-size:12px;font-weight:700;color:var(--ink-2)}
+/* 목록 요금은 오른쪽 위 지역 이름 바로 아래, 오른쪽 끝에 맞춘다.
+   제목 줄 옆에 나란히 두면 좁은 화면에서 휴양림 이름이 짓눌려서 한 줄을 따로 쓴다. */
+.price{margin:-2px 0 2px;text-align:right;white-space:nowrap;font-size:12.5px;font-weight:700;color:var(--ink-2);line-height:1.35}
 .fee{border:1px solid var(--line);border-radius:12px;padding:13px 14px;margin-bottom:14px}
 .fee__head{margin:0 0 10px;display:flex;align-items:baseline;gap:8px;font-size:11px;font-weight:700;color:var(--muted)}
 .fee__head b{font-size:15px;font-weight:800;color:var(--ink-2);letter-spacing:-.02em}

@@ -36,9 +36,16 @@ jobs:
         run: python3 crawl_popularity.py
 
       # 휴양림 172곳의 소개 사진과 이용요금 표. 5~6분 걸린다.
-      # 실패해도 조용히 끝나고, 그러면 build_dataset.py 가 직전 요금·사진을 이어 쓴다.
-      - name: 사진·이용요금 수집
-        run: python3 crawl_details.py
+      # 요금은 1년에 한두 번 바뀌므로 매달 첫째 월요일(1~7일)과 수동 실행 때만 받는다.
+      # 받지 않는 주나 수집이 실패한 주에는 build_dataset.py 가 직전 요금·사진을 이어 쓴다.
+      - name: 사진·이용요금 수집 (매달 첫째 주)
+        run: |
+          DAY=$(TZ=Asia/Seoul date +%-d)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "$DAY" -le 7 ]; then
+            python3 crawl_details.py
+          else
+            echo "이번 주는 사진·요금 수집을 건너뜁니다(매달 1~7일에만 수집)."
+          fi
 
       - name: 자료 가공
         run: python3 build_dataset.py

@@ -392,7 +392,7 @@ function priceRange(f) {
 
 function priceBlock(f) {
   if (!f.요금) return '';
-  return `<span class="price">${priceRange(f)}</span>`;
+  return `<p class="price">${priceRange(f)}</p>`;
 }
 
 /* sheet.json — 객실별 요금표와 사진 여러 장. 상세를 처음 열 때 한 번만 받는다. */
@@ -505,8 +505,9 @@ function renderMore() {
           <span class="row__resv">${esc(D.예약라벨[f.예약])}</span>
           <span class="row__where">${esc(f.권역 >= 0 ? D.권역라벨[f.권역] : '')} ${esc(f.시군구)}</span>
         </div>
+        ${priceBlock(f)}
         <p class="row__name">${highlight(f.이름)}</p>
-        <div class="row__meta">${priceBlock(f)}${popBlock(f)}${compBlock(f)}</div>
+        <div class="row__meta">${popBlock(f)}${compBlock(f)}</div>
       </div>
     </li>`;
   }).join('');

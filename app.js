@@ -34,6 +34,9 @@ const el = {
   sheet: $('sheet'), sheetClose: $('sheetClose'), sheetWhere: $('sheetWhere'),
   sheetGallery: $('sheetGallery'), sheetPhotos: $('sheetPhotos'), photoCount: $('photoCount'),
   photoPrev: $('photoPrev'), photoNext: $('photoNext'), sheetFee: $('sheetFee'),
+  spopWrap: $('spopWrap'), spopShade: $('spopShade'), spop: $('spop'), spopInner: $('spopInner'),
+  spopTitle: $('spopTitle'), spopDday: $('spopDday'), spopWhen: $('spopWhen'),
+  spopBody: $('spopBody'), spopClose: $('spopClose'),
   sheetName: $('sheetName'), sheetBadges: $('sheetBadges'),
   sheetComp: $('sheetComp'), sheetCompSub: $('sheetCompSub'),
   sheetPop: $('sheetPop'), sheetPopSub: $('sheetPopSub'),
@@ -132,18 +135,32 @@ function dday(now, target) {
   return n === 0 ? 'D-DAY' : n > 0 ? `D-${n}` : `${-n}일 전`;
 }
 
-/** 선착순 — 매주 수요일 09:00 에 6주 뒤 이용분이 열린다. */
-function firstComeCard(now) {
+/* 숲나들e '6주 예약정책' — 수요일 9시가 되면 그날부터 6주 안의 날짜를 예약할 수 있다.
+   그래서 수요일 W 에 새로 열리는 건 W+35(5주 뒤 수요일) ~ W+41(그다음 화요일) 일주일이다.
+   2026-09-14 주말추첨 당첨발표 공지의 표가 근거: 9/16(수) 09:00 -> 10/21 ~ 10/27 이용분. */
+const 오픈뒤 = 35;
+
+function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+
+/** now 이후 첫 수요일 09:00. 오늘이 수요일이고 아직 9시 전이면 오늘. */
+function nextWed(now) {
   const wed = new Date(now);
   wed.setHours(9, 0, 0, 0);
-  // 오늘이 수요일이고 아직 9시 전이면 오늘, 아니면 다음 수요일
   const gap = (3 - wed.getDay() + 7) % 7;
   if (gap > 0 || now >= wed) wed.setDate(wed.getDate() + (gap || 7));
+  return wed;
+}
 
-  const from = new Date(wed); from.setDate(from.getDate() + 42);
-  const to = new Date(from); to.setDate(to.getDate() + 6);
+/** 수요일 오픈 한 번에 열리는 이용일 [처음, 끝] */
+function openRange(wed) { return [addDays(wed, 오픈뒤), addDays(wed, 오픈뒤 + 6)]; }
+
+/** 선착순 — 매주 수요일 09:00 에 6주 안쪽으로 일주일씩 새로 열린다. */
+function firstComeCard(now) {
+  const wed = nextWed(now);
+  const [from, to] = openRange(wed);
   const 범위 = `${fmtDate(from)} ~ ${fmtDate(to)}`;
   return {
+    key: 'fc',
     name: '선착순 예약',
     when: fmtDateTime(wed) + ' 오픈',
     dday: dday(now, wed),
@@ -185,7 +202,7 @@ function weekendLotteryCard(now) {
     what = `${대상월(m + 1)} 금·토·공휴일 전일 이용분이 대상입니다.`;
   }
   return {
-    name: '주말 추첨', when, what,
+    key: 'wk', name: '주말 추첨', when, what,
     dday: dday(now, target), days: daysTo(now, target), now: dday(now, target) === 'D-DAY',
   };
 }
@@ -200,6 +217,7 @@ function peakLotteryCard(now) {
   // at() 의 달은 0부터라 6 은 7월. 접수 창은 5월 25일 ~ 6월 말로 잡는다.
   const 접수중 = now >= 접수 && now < at(해, 6, 1, 0);
   return {
+    key: 'pk',
     name: '여름 성수기 추첨',
     // 접수 일자는 매년 따로 공지되는 값이라 못 박지 않는다. 접수 중일 때는
     // D-day 대신 '접수 중'을 띄우고, 그 밖에는 확정된 이용 기간을 기준으로 센다.
@@ -229,14 +247,15 @@ function renderSchedule() {
     .sort((a, b) => a.days - b.days);
 
   el.schedCards.innerHTML = cards.map((c) => `
-    <div class="scard">
-      <div class="scard__top">
+    <button class="scard" type="button" data-key="${c.key}" aria-haspopup="dialog">
+      <span class="scard__top">
         <span class="scard__name">${esc(c.name)}</span>
         <span class="scard__dday${c.now ? ' is-now' : ''}">${esc(c.dday)}</span>
-      </div>
-      <p class="scard__when">${esc(c.when)}</p>
-      <p class="scard__what">${esc(c.what)}</p>
-    </div>`).join('');
+      </span>
+      <span class="scard__when">${esc(c.when)}</span>
+      <span class="scard__what">${esc(c.what)}</span>
+      <span class="scard__more">자세히 보기<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></span>
+    </button>`).join('');
 
   el.schedSum.innerHTML = cards
     .map((c) => `${esc(SCHED_SHORT[c.name] || c.name)} <b>${esc(c.dday)}</b>`)
@@ -250,6 +269,232 @@ function renderSchedule() {
     if (saved !== null) open = saved === '1';
   } catch (e) { /* 무시 */ }
   setSchedOpen(open);
+}
+
+/* ---------------- 예약 일정 상세 팝업 ---------------- */
+
+const FT = 'https://www.foresttrip.go.kr';
+const LINK = {
+  월별현황: `${FT}/rep/or/sssn/monthRsrvtStatus.do?hmpgId=FRIP&menuId=001004`,
+  추첨안내: `${FT}/rep/drlts/drltsUseGdnc.do?hmpgId=FRIP&menuId=001003004`,
+  공지: `${FT}/pot/cc/nm/selectNticBbrssListView.do?hmpgId=FRIP&menuId=004001`,
+  예약정책: `${FT}/pot/cc/bb/selectFripRsrvtPolcyView.do?hmpgId=FRIP&menuId=002001`,
+};
+
+function fmtShort(d) { return `${d.getMonth() + 1}/${d.getDate()}`; }
+
+/** 일정 단계 목록. 지난 단계·지금 단계·다가올 단계를 색으로 나눈다. */
+function stepsHtml(now, steps) {
+  const cur = steps.findIndex((s) => s.at && now < s.at);
+  return `<ol class="tl">${steps.map((s, n) => {
+    const st = s.at == null ? '' : n < cur || cur < 0 ? ' is-done' : n === cur ? ' is-next' : '';
+    const dd = s.at && n === cur ? `<span class="tl__dday">${esc(dday(now, s.at))}</span>` : '';
+    return `<li class="tl__step${st}" style="--i:${n}">
+      <p class="tl__when">${esc(s.when)}${dd}</p>
+      <p class="tl__what">${s.what}</p>
+    </li>`;
+  }).join('')}</ol>`;
+}
+
+/** 이 일정에 몰리는 인기 휴양림. 공식 경쟁률이 있으면 그걸 먼저, 다음은 관심 등록 수. */
+function hotForests(pred, n) {
+  return F.map((f, i) => i)
+    .filter((i) => F[i].구분 === 자연휴양림 && pred(F[i]))
+    .sort((a, b) => ((F[b].경쟁률 || 0) - (F[a].경쟁률 || 0)) || ((F[b].관심 || 0) - (F[a].관심 || 0)))
+    .slice(0, n);
+}
+
+function hotHtml(title, idxs) {
+  if (!idxs.length) return '';
+  return `<h3 class="spop__h">${esc(title)}</h3>
+    <ul class="hot">${idxs.map((i) => {
+      const f = F[i];
+      const 값 = f.경쟁률 != null ? `🏅 ${f.경쟁률} : 1`
+        : f.관심 != null ? `관심 ${f.관심.toLocaleString('ko-KR')}명` : '';
+      return `<li><button class="hot__item" type="button" data-i="${i}">
+        <span class="hot__name">${esc(f.이름)}</span>
+        <span class="hot__where">${esc(f.시군구)}</span>
+        <span class="hot__val">${esc(값)}</span></button></li>`;
+    }).join('')}</ul>`;
+}
+
+function linksHtml(items) {
+  return `<div class="spop__links">${items.map(([label, href, main]) =>
+    `<a class="act${main ? ' act--go' : ''}" href="${esc(href)}" target="_blank" rel="noopener">${esc(label)}</a>`).join('')}</div>`;
+}
+
+const 빈객실안내 = `<p class="spop__note">어느 휴양림에 몇 실이 남았는지는 숲나들e가 로그인한 사람에게만
+  보여 줍니다. 아래 <b>월별현황조회</b>에서 로그인한 뒤 확인하세요.</p>`;
+
+function fcDetail(now) {
+  let wed = nextWed(now);
+  const rows = [];
+  for (let k = 0; k < 4; k++, wed = addDays(wed, 7)) {
+    const [a, b] = openRange(wed);
+    rows.push(`<tr><th scope="row">${esc(fmtDateTime(wed))}</th>
+      <td>${fmtShort(a)} ~ ${fmtShort(b)}</td><td>${esc(dday(now, wed))}</td></tr>`);
+  }
+  return `<p class="spop__lead">매주 <b>수요일 오전 9시</b>, 그날부터 <b>6주 안쪽</b> 날짜를 예약할 수 있게
+      일주일(수~화)씩 새로 열립니다. 숲나들e는 이를 ‘6주 예약정책’이라 부릅니다.</p>
+    <h3 class="spop__h">앞으로 열리는 날</h3>
+    <table class="otab"><thead><tr><th scope="col">오픈</th><th scope="col">이용일</th><th scope="col"></th></tr></thead>
+      <tbody>${rows.join('')}</tbody></table>
+    <p class="spop__note">오픈 직후에는 접속이 몰려 대기열이 뜹니다. 9시 전에 로그인해 두세요.
+      주말·성수기 날짜는 추첨으로 먼저 나가고, 남은 것만 이 일정에 풀립니다.</p>
+    ${hotHtml('빨리 마감되는 곳', hotForests((f) => f.예약 === 0 || f.예약 === 1, 5))}
+    ${빈객실안내}
+    ${linksHtml([['월별현황조회 (빈 객실)', LINK.월별현황, true], ['휴양림별 예약정책', LINK.예약정책]])}`;
+}
+
+/** 주말추첨 한 회차. m 달에 접수하고, 다음 달 금·토·공휴일 전일 이용분을 뽑는다. */
+function weekendCycle(now) {
+  let y = now.getFullYear(), m = now.getMonth();
+  if (now >= at(y, m, 15, 9)) { m += 1; if (m > 11) { m = 0; y += 1; } }
+  return { y, m };
+}
+
+/** 15일 잔여분 오픈과 그 뒤 수요일마다 풀리는 이용일. 공지의 표와 같은 계산이다. */
+function leftoverRows(y, m) {
+  const 첫날 = at(y, m + 1, 1, 0), 말일 = at(y, m + 2, 0, 0);
+  const d15 = at(y, m, 15, 9);
+  const 직전수 = addDays(d15, -((d15.getDay() - 3 + 7) % 7));      // 15일 이전(같은 날 포함) 마지막 수요일
+  const rows = [[d15, 첫날, addDays(직전수, 오픈뒤 + 6)]];
+  for (let w = addDays(직전수, 7); addDays(w, 오픈뒤) <= 말일; w = addDays(w, 7)) {
+    const [a, b] = openRange(w);
+    rows.push([w, a, b]);
+  }
+  return rows.map(([o, a, b]) => [o, a, b > 말일 ? 말일 : b]);
+}
+
+function wkDetail(now) {
+  const { y, m } = weekendCycle(now);
+  const 대상 = `${(m + 1) % 12 + 1}월`;
+  const steps = [
+    { at: at(y, m, 4, 9), what: `<b>접수 시작</b> — ${대상} 금·토·공휴일 전일 이용분` },
+    { at: at(y, m, 9, 18), what: '<b>접수 마감</b>' },
+    { at: at(y, m, 10, 16), what: '<b>당첨 발표</b> — 마이페이지 추첨신청내역·카카오 알림톡' },
+    { at: at(y, m, 14, 18), what: '<b>결제 마감</b> — 기한 안에 안 내면 당첨이 자동 취소됩니다', 까지: true },
+    { at: at(y, m, 15, 9), what: '<b>잔여분 선착순</b> — 미당첨·미신청·미결제분이 다시 풀립니다' },
+  ].map((x) => ({ ...x, when: fmtDateTime(x.at) + (x.까지 ? '까지' : '') }));
+  const rows = leftoverRows(y, m).map(([o, a, b]) => `<tr><th scope="row">${esc(fmtDateTime(o))}</th>
+      <td>${fmtShort(a)} ~ ${fmtShort(b)}</td><td>${esc(dday(now, o))}</td></tr>`).join('');
+  return `<p class="spop__lead">국립자연휴양림의 다음 달 <b>금·토요일과 공휴일 전날</b>은 선착순이 아니라
+      <b>추첨</b>으로 먼저 나갑니다. 아세안휴양림은 대상이 아닙니다.</p>
+    <h3 class="spop__h">${대상} 이용분 일정</h3>
+    ${stepsHtml(now, steps)}
+    <h3 class="spop__h">잔여분이 풀리는 날</h3>
+    <table class="otab"><thead><tr><th scope="col">오픈</th><th scope="col">${대상} 이용일</th><th scope="col"></th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    <p class="spop__note">15일에 6주 안쪽 날짜가 한꺼번에 풀리고, 그 뒤 날짜는 수요일마다 일주일씩 열립니다.
+      매달 당첨발표 공지에 같은 표가 실립니다.</p>
+    ${hotHtml('경쟁이 센 곳', hotForests((f) => f.예약 === 0, 5))}
+    ${빈객실안내}
+    ${linksHtml([['월별현황조회 (빈 객실)', LINK.월별현황, true], ['추첨 이용안내', LINK.추첨안내], ['공지사항', LINK.공지]])}`;
+}
+
+function pkDetail(now) {
+  const c = D.경쟁률자료 || {};
+  const 해 = now > at(now.getFullYear(), 7, 24, 23, 59) ? now.getFullYear() + 1 : now.getFullYear();
+  const steps = [
+    { at: null, when: `${해}년 5월 말 ~ 6월 중`, what: '<b>접수</b> — 정확한 일자는 숲나들e 공지로 따로 나옵니다. 1인 최대 3곳' },
+    { at: null, when: '접수 마감 뒤', what: '<b>추첨·발표</b> — 공지와 알림톡으로 안내' },
+    { at: at(해, 6, 15, 0), when: `${해}년 7월 15일 ~ 8월 24일`, what: '<b>이용 기간</b>' },
+  ];
+  const 통계 = c.전체 ? `<div class="stat">
+      <div><b>${esc(c.전체.평균)} : 1</b><span>전체 평균</span></div>
+      <div><b>${esc(c.전체.객실)} : 1</b><span>객실</span></div>
+      <div><b>${esc(c.전체.야영)} : 1</b><span>야영</span></div>
+    </div>
+    ${c.최고객실 ? `<p class="spop__note">가장 치열했던 객실은 ${esc(c.최고객실.휴양림)} ${esc(c.최고객실.객실)}
+      (${esc(c.최고객실.경쟁률)} : 1)입니다. 야영장은 객실보다 경쟁이 훨씬 덜합니다.</p>` : ''}` : '';
+  return `<p class="spop__lead">여름 성수기(7/15~8/24)는 국립자연휴양림 전 객실이 <b>추첨</b>으로 나갑니다.
+      1년 중 가장 경쟁이 셉니다.</p>
+    <h3 class="spop__h">${해}년 일정</h3>
+    ${stepsHtml(now, steps)}
+    ${통계 ? `<h3 class="spop__h">${esc(c.기준연도)}년 결과</h3>${통계}` : ''}
+    ${hotHtml(`${c.기준연도 || ''} 경쟁률 상위`, hotForests((f) => f.경쟁률 != null, 5))}
+    ${linksHtml([['추첨 이용안내', LINK.추첨안내, true], ['공지사항', LINK.공지],
+                 ...(c.출처링크 ? [['경쟁률 발표 기사', c.출처링크]] : [])])}`;
+}
+
+const SCHED_DETAIL = { fc: fcDetail, wk: wkDetail, pk: pkDetail };
+let spopCard = null;          // 팝업이 빠져나온 카드. 닫을 때 그 자리로 돌아간다
+
+const REDUCE_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+/** 카드 자리의 모양. 팝업을 제 크기로 그려 두고, 카드 위치로 옮긴 뒤 카드 크기만큼만 잘라 보인다.
+    scale 로 줄이면 글자가 찌그러지지만, 잘라 보이면 팝업 머리(이름·D-day·일시)가 카드와 같은 자리에
+    처음부터 또렷이 보여서 카드가 그대로 펼쳐지는 것처럼 보인다. */
+function cardShape(card, radius) {
+  const a = card.getBoundingClientRect(), b = el.spop.getBoundingClientRect();
+  const r = Math.max(0, b.width - a.width), d = Math.max(0, b.height - a.height);
+  return {
+    transform: `translate(${a.left - b.left}px, ${a.top - b.top}px)`,
+    clipPath: `inset(0px ${r}px ${d}px 0px round ${radius}px)`,
+  };
+}
+const POP_SHAPE = { transform: 'translate(0px, 0px)', clipPath: 'inset(0px 0px 0px 0px round 20px)' };
+
+function openSchedPop(card) {
+  if (!D) return;
+  const now = new Date();
+  const c = [firstComeCard(now), weekendLotteryCard(now), peakLotteryCard(now)]
+    .find((x) => x.key === card.dataset.key);
+  el.spopTitle.textContent = c.name;
+  el.spopDday.textContent = c.dday;
+  el.spopDday.classList.toggle('is-now', !!c.now);
+  el.spopWhen.textContent = c.when;
+  el.spopBody.innerHTML = SCHED_DETAIL[c.key](now);
+  el.spopBody.scrollTop = 0;
+
+  spopCard = card;
+  el.spopWrap.hidden = false;
+  document.body.classList.add('is-spop');
+
+  if (!REDUCE_MOTION.matches) {
+    // 1) 카드가 살짝 들렸다가(110ms)  2) 카드 모양 그대로 떨어져 나와 가운데로 커지며 살짝 튕긴다.
+    const 들림 = 110;
+    card.animate(
+      [{ transform: 'none', boxShadow: '0 0 0 rgba(0,0,0,0)' },
+       { transform: 'translateY(-4px) scale(1.03)', boxShadow: '0 14px 30px rgba(30,149,117,.28)' }],
+      { duration: 들림, easing: 'ease-out' }).onfinish = () => card.classList.add('is-lifted');
+    const from = cardShape(card, 14);
+    el.spop.animate(
+      [{ ...from, offset: 0 },
+       // 들림이 끝날 때까지는 카드 자리에 머물고, 그다음 구간에만 살짝 튕기는 곡선을 건다.
+       { ...from, offset: 들림 / 560, easing: 'cubic-bezier(.2,.85,.25,1.06)' },
+       POP_SHAPE],
+      { duration: 560, easing: 'linear' });
+    el.spopShade.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 380, delay: 80, easing: 'ease-out', fill: 'backwards' });
+    // 본문은 상자가 펼쳐지는 동안 아래에서 따라 올라온다.
+    el.spopBody.animate([{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }],
+      { duration: 300, delay: 260, easing: 'ease-out', fill: 'backwards' });
+  } else {
+    card.classList.add('is-lifted');
+  }
+  el.spopClose.focus({ preventScroll: true });
+}
+
+function closeSchedPop() {
+  if (el.spopWrap.hidden) return;
+  const card = spopCard;
+  const done = () => {
+    el.spopWrap.hidden = true;
+    document.body.classList.remove('is-spop');
+    if (card) { card.classList.remove('is-lifted'); card.focus({ preventScroll: true }); }
+    spopCard = null;
+  };
+  // 카드가 화면 밖으로 스크롤됐거나(접힘 포함) 움직임을 줄이는 설정이면 그냥 닫는다.
+  const r = card && card.getBoundingClientRect();
+  if (REDUCE_MOTION.matches || !r || !r.width || r.bottom < 0 || r.top > innerHeight) { done(); return; }
+  // 들어갈 때는 거꾸로 — 본문이 먼저 접히고 상자가 카드 자리로 쏙 들어간다.
+  el.spopBody.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, fill: 'forwards' });
+  el.spopShade.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 320, fill: 'forwards' });
+  el.spop.animate([POP_SHAPE, cardShape(card, 14)],
+    { duration: 320, easing: 'cubic-bezier(.5,0,.75,0)', fill: 'forwards' }).onfinish = () => {
+      [el.spop, el.spopBody, el.spopShade].forEach((x) => x.getAnimations().forEach((a) => a.cancel()));
+      done();
+    };
 }
 
 /* ---------------- 검색 ---------------- */
@@ -565,13 +810,13 @@ function resvNext(f) {
 
 function resvDetail(f) {
   if (f.예약 === 0) {
-    return `<p class="resv__detail">평일·비수기는 <b>선착순</b> — 이용일 6주 전 <b>수요일 오전 9시</b>.
+    return `<p class="resv__detail">평일·비수기는 <b>선착순</b> — 매주 <b>수요일 오전 9시</b>에 6주 안쪽 날짜가 일주일씩 열립니다.
             다음 달 금·토·공휴일 전일과 여름 성수기(7/15~8/24)는 <b>추첨</b> — 매월 <b>4일 9시~9일 18시</b> 신청,
             <b>10일 16시</b> 발표, 미당첨·미결제분은 <b>15일 9시</b>에 선착순으로 풀립니다.</p>
             <p class="resv__detail resv__detail--note">추첨 대상 휴양림은 숲나들e 공지 기준으로 확정됩니다. 신청 전 확인하세요.</p>`;
   }
   if (f.예약 === 1) {
-    return `<p class="resv__detail">이용일 6주 전 <b>수요일 오전 9시</b>에 선착순으로 열립니다. 추첨 대상이 아닙니다.</p>`;
+    return `<p class="resv__detail">매주 <b>수요일 오전 9시</b>에 6주 안쪽 날짜가 일주일씩 선착순으로 열립니다. 추첨 대상이 아닙니다.</p>`;
   }
   if (f.예약 === 2) {
     return `<p class="resv__detail">공립 휴양림은 지자체마다 정책이 다릅니다. 일부는 <b>월 추첨</b>이나 <b>지역주민 추첨</b>을 운영합니다.
@@ -1026,7 +1271,26 @@ function init() {
     btn.remove();
   });
   el.sheetShare.addEventListener('click', shareForest);
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (!el.spopWrap.hidden) closeSchedPop(); else closeSheet();
+  });
+  el.schedCards.addEventListener('click', (e) => {
+    const card = e.target.closest('.scard');
+    if (card) openSchedPop(card);
+  });
+  el.spopClose.addEventListener('click', closeSchedPop);
+  el.spopShade.addEventListener('click', closeSchedPop);
+  el.spopBody.addEventListener('click', (e) => {
+    const hot = e.target.closest('.hot__item');
+    if (!hot) return;
+    // 팝업을 닫고 그 휴양림 상세를 연다.
+    el.spopWrap.hidden = true;
+    document.body.classList.remove('is-spop');
+    if (spopCard) spopCard.classList.remove('is-lifted');
+    spopCard = null;
+    openSheet(Number(hot.dataset.i));
+  });
 
   el.tabList.addEventListener('click', () => setPane('list'));
   el.tabMap.addEventListener('click', () => setPane('map'));

@@ -95,9 +95,24 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
 .sched__body{padding-bottom:16px}
 .sched__cards{display:grid;gap:10px;grid-template-columns:1fr}
 .scard{
+  display:block;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;
   background:var(--surface);border:1px solid var(--forest-line);
   border-radius:var(--r);padding:14px 16px;
+  transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease,opacity .2s ease;
 }
+.scard__when,.scard__what{display:block}
+@media (hover:hover){
+  .scard:hover{border-color:var(--forest);box-shadow:0 6px 18px rgba(30,149,117,.14);transform:translateY(-2px)}
+  .scard:hover .scard__more svg{transform:translateX(3px)}
+}
+.scard:active{transform:scale(.985)}
+/* 팝업이 빠져나간 자리. 카드가 비어 보이게 흐리게 눌러 둔다. */
+.scard.is-lifted{opacity:.25;transform:scale(.97);box-shadow:none}
+.scard__more{
+  display:inline-flex;align-items:center;gap:2px;margin-top:9px;
+  font-size:12px;font-weight:700;color:var(--forest-deep);
+}
+.scard__more svg{width:14px;height:14px;transition:transform .18s}
 .scard__top{display:flex;align-items:baseline;gap:8px;margin-bottom:6px}
 .scard__name{font-size:13px;font-weight:700;color:var(--ink-2)}
 .scard__dday{
@@ -248,6 +263,78 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
   border:1px solid var(--line);background:rgba(255,255,255,.96);border-radius:999px;
   padding:9px 18px;font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;
   box-shadow:0 2px 10px rgba(0,0,0,.1);
+}
+
+/* ---------- 예약 일정 상세 팝업 ----------
+   카드 자리에서 쏙 빠져나와 가운데로 커지는 움직임은 app.js 의 openSchedPop 이 맡는다. */
+body.is-spop{overflow:hidden}
+.spop-wrap{position:fixed;inset:0;z-index:300;display:grid;place-items:center;padding:16px}
+.spop-shade{position:absolute;inset:0;background:rgba(20,32,28,.48);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+.spop{
+  position:relative;width:min(560px,100%);max-height:min(86vh,760px);
+  background:var(--surface);border-radius:20px;border-top:4px solid var(--forest);
+  box-shadow:0 24px 70px rgba(0,0,0,.28);overflow:hidden;transform-origin:top left;
+  display:flex;flex-direction:column;will-change:transform;
+}
+.spop__inner{display:flex;flex-direction:column;min-height:0;flex:1 1 auto}
+.spop__head{position:relative;padding:18px 20px 14px;border-bottom:1px solid var(--line);background:var(--forest-pale)}
+.spop__top{display:flex;align-items:center;gap:10px;padding-right:40px}
+.spop__title{margin:0;font-size:18px;font-weight:800;color:var(--ink-2);letter-spacing:-.02em}
+.spop__top .scard__dday{margin-left:0}
+.spop__when{margin:6px 0 0;font-size:15px;font-weight:700;color:var(--forest-deep)}
+.spop__close{position:absolute;right:14px;top:14px;width:32px;height:32px;padding:6px;border:0;border-radius:50%;background:var(--surface);color:var(--ink);cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.14)}
+.spop__body{padding:16px 20px 20px;overflow-y:auto;overscroll-behavior:contain}
+.spop__lead{margin:0 0 4px;font-size:13.5px;line-height:1.7;color:var(--ink)}
+.spop__lead b,.spop__note b{color:var(--forest-deep)}
+.spop__h{margin:18px 0 8px;font-size:12px;font-weight:800;color:var(--muted);letter-spacing:.02em}
+.spop__note{margin:10px 0 0;font-size:12px;line-height:1.6;color:var(--muted)}
+.spop__links{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+.spop__links .act--go{grid-column:1/-1}
+.spop__links .act:last-child:nth-child(even){grid-column:1/-1}
+
+/* 단계 — 지난 단계는 흐리게, 다음 단계는 초록 점과 D-day */
+.tl{list-style:none;margin:0;padding:0 0 0 4px}
+.tl__step{position:relative;padding:0 0 14px 22px;animation:tlIn .32s ease-out backwards;animation-delay:calc(.42s + var(--i) * .06s)}
+.tl__step::before{content:"";position:absolute;left:4px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--surface);border:2px solid var(--forest-line)}
+.tl__step::after{content:"";position:absolute;left:9px;top:19px;bottom:-1px;width:2px;background:var(--forest-line)}
+.tl__step:last-child{padding-bottom:0}
+.tl__step:last-child::after{display:none}
+.tl__step.is-done{opacity:.5}
+.tl__step.is-done::before{background:var(--forest-line)}
+.tl__step.is-next::before{background:var(--forest);border-color:var(--forest);box-shadow:0 0 0 4px rgba(34,170,134,.2)}
+.tl__when{margin:0;display:flex;align-items:center;gap:8px;font-size:13.5px;font-weight:700;color:var(--ink-2)}
+.tl__dday{font-size:11px;font-weight:800;color:#fff;background:var(--forest);border-radius:999px;padding:2px 8px}
+.tl__what{margin:2px 0 0;font-size:12.5px;line-height:1.55;color:var(--ink)}
+@keyframes tlIn{from{opacity:0;transform:translateX(-6px)}}
+
+/* 오픈 일정 표 */
+.otab{width:100%;border-collapse:collapse;font-size:13px}
+.otab th,.otab td{padding:8px 4px;border-bottom:1px solid var(--line);text-align:left}
+.otab thead th{font-size:11px;font-weight:700;color:var(--muted)}
+.otab tbody th{font-weight:600;color:var(--ink)}
+.otab td{font-weight:700;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.otab td:last-child{text-align:right;font-size:11.5px;font-weight:800;color:var(--forest-deep);white-space:nowrap}
+.otab tbody tr:last-child>*{border-bottom:0}
+
+/* 인기 휴양림 — 누르면 그 휴양림 상세로 */
+.hot{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.hot__item{
+  width:100%;display:flex;align-items:baseline;gap:8px;padding:9px 12px;cursor:pointer;
+  border:1px solid var(--line);border-radius:10px;background:var(--surface);font:inherit;text-align:left;
+}
+.hot__item:hover{border-color:var(--forest);background:var(--forest-pale)}
+.hot__name{font-size:13.5px;font-weight:700;color:var(--ink-2)}
+.hot__where{font-size:11.5px;color:var(--muted)}
+.hot__val{margin-left:auto;font-size:12px;font-weight:700;color:#8A5B14;white-space:nowrap}
+
+.stat{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.stat>div{background:var(--gold-pale);border:1px solid #EAD9B4;border-radius:10px;padding:10px;text-align:center}
+.stat b{display:block;font-size:16px;font-weight:800;color:var(--ink-2)}
+.stat span{font-size:11px;color:#8A5B14}
+
+@media (prefers-reduced-motion:reduce){
+  .tl__step{animation:none}
+  .scard,.scard__more svg{transition:none}
 }
 
 /* ---------- detail sheet ---------- */

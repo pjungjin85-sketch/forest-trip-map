@@ -22,6 +22,7 @@ const $ = (id) => document.getElementById(id);
 const el = {
   q: $('q'), clear: $('clear'), hit: $('hit'), scope: $('scope'),
   headMeta: $('headMeta'), footMeta: $('footMeta'),
+  masthArt: $('masthArt'),
   schedCards: $('schedCards'), schedSum: $('schedSum'),
   schedToggle: $('schedToggle'), schedBody: $('schedBody'),
   areaSel: $('areaSel'), citySel: $('citySel'),
@@ -53,6 +54,53 @@ let refitNext = true;  // 지도 뷰포트를 다시 맞출지. 위치 기준이
 // (국립등산학교·동서트레일·산림레포츠파크 등)은 화면에 올리지 않는다.
 const 자연휴양림 = 0;
 const filter = { q: '', area: -1, city: '', tag: -1, sort: 'pop' };
+
+/* ---------------- 마스트헤드 배경 사진 ---------------- */
+
+/* Pexels 에서 받은 숲 사진 다섯 장(hero/CREDITS.md 참고).
+   첫 장만 바로 받고 나머지는 차례가 오기 전에 하나씩 받는다. 다섯 장을 한꺼번에
+   받으면 390KB 가 첫 화면 로딩을 붙잡는데, 배경 장식이 그럴 값어치는 없다. */
+const HERO = ['green-light', 'pine-path', 'sunrise', 'pine-mist', 'fog'];
+const HERO_MS = 5000;
+
+function startHero() {
+  if (!el.masthArt || !HERO.length) return;
+
+  const made = [];
+  const 만들기 = (n) => {
+    if (made[n]) return made[n];
+    const img = new Image();
+    img.src = `hero/hero-${HERO[n]}.jpg`;
+    img.alt = '';
+    img.decoding = 'async';
+    el.masthArt.appendChild(img);
+    made[n] = img;
+    return img;
+  };
+
+  let 현재 = 0;
+  const 첫장 = 만들기(0);
+  // 다 받기 전에 켜면 빈 칸이 깜빡인다
+  if (첫장.complete) 첫장.classList.add('is-on');
+  else 첫장.addEventListener('load', () => 첫장.classList.add('is-on'), { once: true });
+
+  if (HERO.length < 2) return;
+  // 애니메이션을 꺼 둔 사람에게는 한 장만 보여 준다
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+  만들기(1);                                   // 다음 장을 미리 받아 둔다
+  setInterval(() => {
+    // 탭이 안 보이면 넘기지 않는다. 돌아왔을 때 몇 장이 건너뛰어 있는 건 의미가 없다
+    if (document.hidden) return;
+    const 다음 = (현재 + 1) % HERO.length;
+    const img = 만들기(다음);
+    if (!img.complete) return;                 // 아직 못 받았으면 이번 차례는 거른다
+    made[현재].classList.remove('is-on');
+    img.classList.add('is-on');
+    현재 = 다음;
+    만들기((다음 + 1) % HERO.length);          // 그다음 장을 미리
+  }, HERO_MS);
+}
 
 /* ---------------- 예약 일정 ---------------- */
 
@@ -793,6 +841,7 @@ function debounce(fn, ms) {
 /* ---------------- init ---------------- */
 
 function init() {
+  startHero();
   renderSchedule();
 
   el.q.addEventListener('input', debounce(() => {

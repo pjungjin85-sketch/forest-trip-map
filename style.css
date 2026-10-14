@@ -49,12 +49,21 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
   border-top:6px solid var(--forest);
   border-bottom:1px solid var(--line);
 }
-/* 제목 오른쪽 빈 자리를 채우는 숲 실루엣. 글씨가 놓이는 왼쪽은 SVG 안에서
-   그라디언트 마스크로 지워 두었고, 여기서는 위치와 크기만 잡는다. */
-.masthead__art{
-  position:absolute;right:0;bottom:0;
-  width:min(72%,880px);height:100%;
-  pointer-events:none;
+/* 마스트헤드 배경 사진. 5초마다 넘어간다. 두 장을 겹쳐 두고 위 장의 투명도만
+   바꿔서 교차시키므로, 넘어가는 순간에도 빈 화면이 생기지 않는다. */
+.masthead__art{position:absolute;inset:0;overflow:hidden;background:var(--forest-pale)}
+.masthead__art img{
+  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+  opacity:0;transition:opacity 1.1s ease-in-out;
+}
+.masthead__art img.is-on{opacity:1}
+/* 사진 위에 덮는 흰 막. 왼쪽은 완전히 가려 글씨를 지키고 오른쪽으로 갈수록 걷힌다.
+   아래쪽도 살짝 덮어 예약 일정 띠와 경계가 튀지 않게 한다. */
+.masthead__veil{
+  position:absolute;inset:0;pointer-events:none;
+  background:
+    linear-gradient(to right, #fff 0%, #fff 30%, rgba(255,255,255,.86) 52%, rgba(255,255,255,.62) 78%, rgba(255,255,255,.52) 100%),
+    linear-gradient(to bottom, rgba(255,255,255,.35) 0%, rgba(255,255,255,0) 40%);
 }
 .masthead__inner{position:relative;max-width:1200px;margin:0 auto;padding:22px var(--pad) 20px}
 .eyebrow{margin:0 0 8px;font-size:12px;font-weight:600;color:var(--forest-deep);letter-spacing:.02em}
@@ -341,10 +350,16 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
   .row__thumb{width:78px}
 }
 @media (max-width:640px){
-  /* 좁은 화면에서는 제목이 폭을 다 쓴다. 숲을 화면 전체 폭에 깔되 더 연하게 두고,
-     나무가 잘려 보이지 않도록 아래쪽에 충분한 높이를 준다. */
-  .masthead__art{width:100%;height:72%;opacity:.7}
-  .masthead__inner{padding-bottom:30px}
+  /* 좁은 화면은 제목이 폭을 다 쓴다. 흰 막을 더 두껍게 깔아 글씨를 지킨다. */
+  .masthead__veil{
+    background:
+      linear-gradient(to right, #fff 0%, rgba(255,255,255,.93) 44%, rgba(255,255,255,.72) 100%),
+      linear-gradient(to bottom, rgba(255,255,255,.55) 0%, rgba(255,255,255,.1) 62%);
+  }
+  .masthead__inner{padding-bottom:26px}
+}
+@media (prefers-reduced-motion:reduce){
+  .masthead__art img{transition:none}
 }
 @media (min-width:900px){
   .sched__cards{grid-template-columns:repeat(3,1fr)}

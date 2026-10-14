@@ -120,10 +120,15 @@ function fmtDateTime(dt) {
   const h = dt.getHours();
   return `${fmtDate(dt)} ${h < 12 ? '오전' : '오후'} ${h % 12 || 12}시`;
 }
-function dday(now, target) {
+/** 오늘부터 target 날짜까지 남은 날 수. 시각은 무시하고 날짜로만 센다. */
+function daysTo(now, target) {
   const a = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const b = new Date(target.getFullYear(), target.getMonth(), target.getDate());
-  const n = Math.round((b - a) / 86400000);
+  return Math.round((b - a) / 86400000);
+}
+
+function dday(now, target) {
+  const n = daysTo(now, target);
   return n === 0 ? 'D-DAY' : n > 0 ? `D-${n}` : `${-n}일 전`;
 }
 
@@ -142,6 +147,7 @@ function firstComeCard(now) {
     name: '선착순 예약',
     when: fmtDateTime(wed) + ' 오픈',
     dday: dday(now, wed),
+    days: daysTo(now, wed),
     now: dday(now, wed) === 'D-DAY',
     범위,                                    // 이때 열리는 이용일
     what: `이때 열리는 이용일은 ${범위} 입니다. `
@@ -180,7 +186,7 @@ function weekendLotteryCard(now) {
   }
   return {
     name: '주말 추첨', when, what,
-    dday: dday(now, target), now: dday(now, target) === 'D-DAY',
+    dday: dday(now, target), days: daysTo(now, target), now: dday(now, target) === 'D-DAY',
   };
 }
 
@@ -200,6 +206,7 @@ function peakLotteryCard(now) {
     when: 접수중 ? `${해}년 접수 기간 (숲나들e 공지 확인)`
                  : `${해}년 7월 15일 ~ 8월 24일 이용분`,
     dday: 접수중 ? '접수 중' : dday(now, 이용),
+    days: 접수중 ? 0 : daysTo(now, 이용),
     now: 접수중,
     what: '접수는 5월 말~6월 중에 열리며 정확한 일자는 매년 따로 공지됩니다. '
         + '1인당 최대 3곳까지 신청할 수 있습니다.',
@@ -217,7 +224,9 @@ function setSchedOpen(open) {
 
 function renderSchedule() {
   const now = new Date();
-  const cards = [firstComeCard(now), weekendLotteryCard(now), peakLotteryCard(now)];
+  // 가장 가까운 일정이 앞에 온다. 접힌 요약 줄도 같은 순서를 따른다.
+  const cards = [firstComeCard(now), weekendLotteryCard(now), peakLotteryCard(now)]
+    .sort((a, b) => a.days - b.days);
 
   el.schedCards.innerHTML = cards.map((c) => `
     <div class="scard">

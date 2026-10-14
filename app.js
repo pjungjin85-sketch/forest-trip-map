@@ -32,6 +32,7 @@ const el = {
   map: $('map'), mapkey: $('mapkey'), mapreset: $('mapreset'),
   keyInput: $('keyInput'), keySave: $('keySave'), originHint: $('originHint'),
   sheet: $('sheet'), sheetClose: $('sheetClose'), sheetWhere: $('sheetWhere'),
+  sheetWrap: $('sheetWrap'), sheetShade: $('sheetShade'),
   sheetGallery: $('sheetGallery'), sheetPhotos: $('sheetPhotos'), photoCount: $('photoCount'),
   photoPrev: $('photoPrev'), photoNext: $('photoNext'), sheetFee: $('sheetFee'),
   spopWrap: $('spopWrap'), spopShade: $('spopShade'), spop: $('spop'), spopInner: $('spopInner'),
@@ -422,18 +423,82 @@ let spopCard = null;          // 팝업이 빠져나온 카드. 닫을 때 그 �
 
 const REDUCE_MOTION = window.matchMedia('(prefers-reduced-motion: reduce)');
 
-/** 카드 자리의 모양. 팝업을 제 크기로 그려 두고, 카드 위치로 옮긴 뒤 카드 크기만큼만 잘라 보인다.
-    scale 로 줄이면 글자가 찌그러지지만, 잘라 보이면 팝업 머리(이름·D-day·일시)가 카드와 같은 자리에
-    처음부터 또렷이 보여서 카드가 그대로 펼쳐지는 것처럼 보인다. */
-function cardShape(card, radius) {
-  const a = card.getBoundingClientRect(), b = el.spop.getBoundingClientRect();
+/* ---------------- 카드에서 빠져나오는 팝업 (일정 상세·휴양림 상세 공용) ----------------
+   팝업을 제 크기로 그려 두고, 누른 카드 위치로 옮긴 뒤 카드 크기만큼만 잘라 보인다(clip-path).
+   scale 로 줄이면 글자가 찌그러지지만, 잘라 보이면 팝업 윗부분이 카드 자리에 처음부터
+   또렷이 보여서 카드가 그대로 펼쳐지는 것처럼 보인다. */
+
+const 들림 = 110;           // 카드가 살짝 들리는 시간
+const 펼침 = 560;           // 들림을 포함해 다 펼쳐질 때까지
+const POP_SHAPE = { transform: 'translate(0px, 0px)', clipPath: 'inset(0px 0px 0px 0px round 20px)' };
+
+function popShape(box, origin, radius) {
+  const a = origin.getBoundingClientRect(), b = box.getBoundingClientRect();
   const r = Math.max(0, b.width - a.width), d = Math.max(0, b.height - a.height);
   return {
     transform: `translate(${a.left - b.left}px, ${a.top - b.top}px)`,
     clipPath: `inset(0px ${r}px ${d}px 0px round ${radius}px)`,
   };
 }
-const POP_SHAPE = { transform: 'translate(0px, 0px)', clipPath: 'inset(0px 0px 0px 0px round 20px)' };
+
+/** 화면 안에 보이는 요소인가. 목록이 접혔거나 스크롤로 밀려났으면 거기서 나온 척할 수 없다. */
+function onScreen(x) {
+  if (!x || !x.isConnected) return false;
+  const r = x.getBoundingClientRect();
+  return r.width > 0 && r.bottom > 0 && r.top < innerHeight;
+}
+
+/** 열기. origin 이 없으면(지도 마커·공유 링크) 가운데서 살짝 커지며 나타난다. */
+function popIn({ box, shade, body }, origin) {
+  if (REDUCE_MOTION.matches) { if (origin) origin.classList.add('is-lifted'); return; }
+  if (onScreen(origin)) {
+    // 1) 카드가 살짝 들렸다가  2) 카드 모양 그대로 떨어져 나와 가운데로 커지며 살짝 튕긴다.
+    origin.animate(
+      [{ transform: 'none', boxShadow: '0 0 0 rgba(0,0,0,0)' },
+       { transform: 'translateY(-4px) scale(1.03)', boxShadow: '0 14px 30px rgba(30,149,117,.28)' }],
+      { duration: 들림, easing: 'ease-out' }).onfinish = () => origin.classList.add('is-lifted');
+    const from = popShape(box, origin, 14);
+    box.animate(
+      [{ ...from, offset: 0 },
+       // 들림이 끝날 때까지는 카드 자리에 머물고, 그다음 구간에만 살짝 튕기는 곡선을 건다.
+       { ...from, offset: 들림 / 펼침, easing: 'cubic-bezier(.2,.85,.25,1.06)' },
+       POP_SHAPE],
+      { duration: 펼침, easing: 'linear' });
+    if (body) {
+      // 본문은 상자가 펼쳐지는 동안 아래에서 따라 올라온다.
+      body.animate([{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }],
+        { duration: 300, delay: 260, easing: 'ease-out', fill: 'backwards' });
+    }
+  } else {
+    box.animate([{ opacity: 0, transform: 'scale(.94)' }, { opacity: 1, transform: 'none' }],
+      { duration: 300, easing: 'cubic-bezier(.2,.85,.25,1.06)' });
+  }
+  shade.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 380, delay: 60, easing: 'ease-out', fill: 'backwards' });
+}
+
+/** 닫기. 나온 카드가 화면에 있으면 그 자리로 접혀 들어가고, 없으면 살짝 작아지며 사라진다. */
+function popOut({ box, shade, body }, origin, done) {
+  const finish = () => {
+    [box, shade, body].forEach((x) => x && x.getAnimations().forEach((a) => a.cancel()));
+    if (origin) origin.classList.remove('is-lifted');
+    done();
+  };
+  if (REDUCE_MOTION.matches) { finish(); return null; }
+  shade.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 300, fill: 'forwards' });
+  let a;
+  if (onScreen(origin)) {
+    if (body) body.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, fill: 'forwards' });
+    a = box.animate([POP_SHAPE, popShape(box, origin, 14)],
+      { duration: 320, easing: 'cubic-bezier(.5,0,.75,0)', fill: 'forwards' });
+  } else {
+    a = box.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.96)' }],
+      { duration: 200, easing: 'ease-in', fill: 'forwards' });
+  }
+  a.onfinish = finish;
+  return finish;          // 닫히는 도중에 다시 열면 바로 끝내도록 돌려준다
+}
+
+const SPOP = () => ({ box: el.spop, shade: el.spopShade, body: el.spopBody });
 
 function openSchedPop(card) {
   if (!D) return;
@@ -449,52 +514,23 @@ function openSchedPop(card) {
 
   spopCard = card;
   el.spopWrap.hidden = false;
-  document.body.classList.add('is-spop');
-
-  if (!REDUCE_MOTION.matches) {
-    // 1) 카드가 살짝 들렸다가(110ms)  2) 카드 모양 그대로 떨어져 나와 가운데로 커지며 살짝 튕긴다.
-    const 들림 = 110;
-    card.animate(
-      [{ transform: 'none', boxShadow: '0 0 0 rgba(0,0,0,0)' },
-       { transform: 'translateY(-4px) scale(1.03)', boxShadow: '0 14px 30px rgba(30,149,117,.28)' }],
-      { duration: 들림, easing: 'ease-out' }).onfinish = () => card.classList.add('is-lifted');
-    const from = cardShape(card, 14);
-    el.spop.animate(
-      [{ ...from, offset: 0 },
-       // 들림이 끝날 때까지는 카드 자리에 머물고, 그다음 구간에만 살짝 튕기는 곡선을 건다.
-       { ...from, offset: 들림 / 560, easing: 'cubic-bezier(.2,.85,.25,1.06)' },
-       POP_SHAPE],
-      { duration: 560, easing: 'linear' });
-    el.spopShade.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 380, delay: 80, easing: 'ease-out', fill: 'backwards' });
-    // 본문은 상자가 펼쳐지는 동안 아래에서 따라 올라온다.
-    el.spopBody.animate([{ opacity: 0, transform: 'translateY(14px)' }, { opacity: 1, transform: 'none' }],
-      { duration: 300, delay: 260, easing: 'ease-out', fill: 'backwards' });
-  } else {
-    card.classList.add('is-lifted');
-  }
+  document.body.classList.add('is-modal');
+  popIn(SPOP(), card);
   el.spopClose.focus({ preventScroll: true });
 }
 
-function closeSchedPop() {
+/** instant 면 움직임 없이 바로 닫는다(팝업 안에서 휴양림 상세로 넘어갈 때). */
+function closeSchedPop(instant) {
   if (el.spopWrap.hidden) return;
   const card = spopCard;
+  spopCard = null;
   const done = () => {
     el.spopWrap.hidden = true;
-    document.body.classList.remove('is-spop');
-    if (card) { card.classList.remove('is-lifted'); card.focus({ preventScroll: true }); }
-    spopCard = null;
+    document.body.classList.remove('is-modal');
+    if (card && !instant) card.focus({ preventScroll: true });
   };
-  // 카드가 화면 밖으로 스크롤됐거나(접힘 포함) 움직임을 줄이는 설정이면 그냥 닫는다.
-  const r = card && card.getBoundingClientRect();
-  if (REDUCE_MOTION.matches || !r || !r.width || r.bottom < 0 || r.top > innerHeight) { done(); return; }
-  // 들어갈 때는 거꾸로 — 본문이 먼저 접히고 상자가 카드 자리로 쏙 들어간다.
-  el.spopBody.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 120, fill: 'forwards' });
-  el.spopShade.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 320, fill: 'forwards' });
-  el.spop.animate([POP_SHAPE, cardShape(card, 14)],
-    { duration: 320, easing: 'cubic-bezier(.5,0,.75,0)', fill: 'forwards' }).onfinish = () => {
-      [el.spop, el.spopBody, el.spopShade].forEach((x) => x.getAnimations().forEach((a) => a.cancel()));
-      done();
-    };
+  if (instant) { if (card) card.classList.remove('is-lifted'); done(); return; }
+  popOut(SPOP(), card, done);
 }
 
 /* ---------------- 검색 ---------------- */
@@ -911,7 +947,20 @@ function openFromUrl() {
   if (i >= 0) openSheet(i);
 }
 
-function openSheet(i) {
+let sheetOrigin = null;      // 상세가 빠져나온 목록 줄. 닫을 때 그 자리로 돌아간다
+let sheetClosing = null;     // 닫히는 중이면 그걸 바로 끝내는 함수
+
+/** 사라질 요소 대신 그 자리 사각형만 들고 있는 가짜 출발점. 들림·되돌아가기는 하지 않는다. */
+function rectOrigin(r) {
+  return {
+    isConnected: true, getBoundingClientRect: () => r,
+    animate: () => ({ set onfinish(fn) { fn(); } }),
+    classList: { add() {}, remove() {} }, focus() {},
+  };
+}
+
+function openSheet(i, origin) {
+  if (sheetClosing) sheetClosing();
   const f = F[i];
   const t = f.유형 >= 0 ? f.유형 : 0;
 
@@ -986,14 +1035,30 @@ function openSheet(i) {
   if (f.전화) acts.push(`<a class="act" href="tel:${esc(f.전화.replace(/[^0-9]/g, ''))}">전화</a>`);
   el.sheetActs.innerHTML = acts.join('');
 
+  const 이미열림 = !el.sheetWrap.hidden;
   열린휴양림 = i;
   setUrlForest(f);
-  el.sheet.hidden = false;
+  el.sheetWrap.hidden = false;
   el.sheet.scrollTop = 0;
+  document.body.classList.add('is-modal');
+  if (!이미열림) {
+    popIn({ box: el.sheet, shade: el.sheetShade }, origin || null);
+    // 진짜 목록 줄이면 닫을 때 그 자리로 돌아가고, 위치만 빌린 경우에는 그냥 사라진다.
+    sheetOrigin = origin && origin.nodeType ? origin : null;
+    el.sheetClose.focus({ preventScroll: true });
+  }
 }
 
 function closeSheet() {
-  el.sheet.hidden = true;
+  if (el.sheetWrap.hidden || sheetClosing) return;
+  const origin = sheetOrigin;
+  sheetOrigin = null;
+  sheetClosing = popOut({ box: el.sheet, shade: el.sheetShade }, origin, () => {
+    sheetClosing = null;
+    el.sheetWrap.hidden = true;
+    document.body.classList.remove('is-modal');
+    if (origin && origin.isConnected) origin.focus({ preventScroll: true });
+  });
   열린휴양림 = -1;
   setUrlForest(null);
 }
@@ -1252,15 +1317,16 @@ function init() {
 
   el.list.addEventListener('click', (e) => {
     const row = e.target.closest('.row');
-    if (row) openSheet(results[+row.dataset.n]);
+    if (row) openSheet(results[+row.dataset.n], row);
   });
   el.list.addEventListener('keydown', (e) => {
     if (e.key !== 'Enter' && e.key !== ' ') return;
     const row = e.target.closest('.row');
-    if (row) { e.preventDefault(); openSheet(results[+row.dataset.n]); }
+    if (row) { e.preventDefault(); openSheet(results[+row.dataset.n], row); }
   });
 
   el.sheetClose.addEventListener('click', closeSheet);
+  el.sheetShade.addEventListener('click', closeSheet);
   el.sheetPhotos.addEventListener('scroll', debounce(updatePhotoCount, 60), { passive: true });
   el.photoPrev.addEventListener('click', () => stepPhoto(-1));
   el.photoNext.addEventListener('click', () => stepPhoto(1));
@@ -1284,12 +1350,11 @@ function init() {
   el.spopBody.addEventListener('click', (e) => {
     const hot = e.target.closest('.hot__item');
     if (!hot) return;
-    // 팝업을 닫고 그 휴양림 상세를 연다.
-    el.spopWrap.hidden = true;
-    document.body.classList.remove('is-spop');
-    if (spopCard) spopCard.classList.remove('is-lifted');
-    spopCard = null;
-    openSheet(Number(hot.dataset.i));
+    // 일정 팝업을 바로 닫고, 누른 줄에서 휴양림 상세가 빠져나오게 한다.
+    // 줄은 일정 팝업과 함께 사라지므로 위치만 빌린다.
+    const ghost = hot.getBoundingClientRect();
+    closeSchedPop(true);
+    openSheet(Number(hot.dataset.i), rectOrigin(ghost));
   });
 
   el.tabList.addEventListener('click', () => setPane('list'));

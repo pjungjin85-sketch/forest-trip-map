@@ -163,6 +163,8 @@
   <h2 class="sheet__name" id="sheetName"></h2>
   <div class="sheet__badges" id="sheetBadges"></div>
 
+  <div class="resv" id="sheetResv"></div>
+
   <div class="gauge">
     <div class="gauge__box gauge__box--comp">
       <p class="gauge__label">공식 경쟁률</p>
@@ -176,11 +178,18 @@
     </div>
   </div>
 
-  <div class="resv" id="sheetResv"></div>
-
   <p class="sheet__intro" id="sheetIntro"></p>
   <dl class="spec" id="sheetSpec"></dl>
-  <div class="sheet__acts" id="sheetActs"></div>
+  <div class="sheet__foot">
+    <div class="sheet__acts" id="sheetActs"></div>
+    <button class="share" id="sheetShare" type="button" aria-label="이 휴양림 공유하기">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+        <path d="M8.6 10.6l6.8-4M8.6 13.4l6.8 4"/>
+      </svg>
+      <span id="shareLabel">공유</span>
+    </button>
+  </div>
 </div>
 
 <footer class="foot">

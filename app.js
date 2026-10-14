@@ -37,6 +37,7 @@ const el = {
   sheetPop: $('sheetPop'), sheetPopSub: $('sheetPopSub'),
   sheetResv: $('sheetResv'), sheetIntro: $('sheetIntro'), sheetSpec: $('sheetSpec'),
   sheetActs: $('sheetActs'), controls: document.querySelector('.controls'),
+  sheetShare: $('sheetShare'), shareLabel: $('shareLabel'),
 };
 
 let D = null;          // forests.json 전체
@@ -87,12 +88,14 @@ function firstComeCard(now) {
 
   const from = new Date(wed); from.setDate(from.getDate() + 42);
   const to = new Date(from); to.setDate(to.getDate() + 6);
+  const 범위 = `${fmtDate(from)} ~ ${fmtDate(to)}`;
   return {
     name: '선착순 예약',
     when: fmtDateTime(wed) + ' 오픈',
     dday: dday(now, wed),
     now: dday(now, wed) === 'D-DAY',
-    what: `이때 열리는 이용일은 ${fmtDate(from)} ~ ${fmtDate(to)} 입니다. `
+    범위,                                    // 이때 열리는 이용일
+    what: `이때 열리는 이용일은 ${범위} 입니다. `
         + '인기 휴양림은 몇 분 만에 마감되니 미리 로그인해 두세요.',
   };
 }
@@ -361,22 +364,127 @@ function kakaoPlaceUrl(f) {
 }
 
 /** 이 휴양림에 적용되는 예약 규칙을 문장으로 풀어 준다. */
-function resvDetail(f) {
-  const way = D.예약라벨[f.예약];
+/** 이 휴양림에 지금 적용되는 다음 예약 일시. 상단 패널의 계산을 그대로 쓴다. */
+function resvNext(f) {
+  if (f.예약 !== 0 && f.예약 !== 1) return '';      // 공립·사립은 규칙이 제각각이라 계산할 수 없다
+  const now = new Date();
+  const 줄 = [];
+
+  const 선 = firstComeCard(now);
+  줄.push({ 꼬리표: '다음 선착순 오픈', when: 선.when.replace(' 오픈', ''),
+           dday: 선.dday, now: 선.now, sub: `이때 열리는 이용일 ${선.범위}` });
+
   if (f.예약 === 0) {
-    return `<p class="resv__detail">평일·비수기는 <b>선착순</b> — 이용일 6주 전 <b>수요일 오전 9시</b>에 열립니다.<br>`
-         + `다음 달 금·토·공휴일 전일과 여름 성수기(7/15~8/24)는 <b>추첨</b> — 매월 <b>4일 9시~9일 18시</b> 신청, `
-         + `<b>10일 16시</b> 발표, 미당첨·미결제분은 <b>15일 9시</b>에 선착순으로 풀립니다.</p>`
-         + `<p class="resv__detail" style="color:var(--muted)">추첨 대상 휴양림은 숲나들e 공지 기준으로 확정됩니다. 신청 전 확인하세요.</p>`;
+    const 추 = weekendLotteryCard(now);
+    줄.push({ 꼬리표: '주말 추첨', when: 추.when, dday: 추.dday, now: 추.now, sub: 추.what });
+  }
+
+  return `<div class="resv__next">` + 줄.map((r) => `
+    <div class="nx">
+      <p class="nx__tag">${esc(r.꼬리표)}</p>
+      <p class="nx__when">${esc(r.when)}
+        <span class="nx__dday${r.now ? ' is-now' : ''}">${esc(r.dday)}</span></p>
+      <p class="nx__sub">${esc(r.sub)}</p>
+    </div>`).join('') + `</div>`;
+}
+
+function resvDetail(f) {
+  if (f.예약 === 0) {
+    return `<p class="resv__detail">평일·비수기는 <b>선착순</b> — 이용일 6주 전 <b>수요일 오전 9시</b>.
+            다음 달 금·토·공휴일 전일과 여름 성수기(7/15~8/24)는 <b>추첨</b> — 매월 <b>4일 9시~9일 18시</b> 신청,
+            <b>10일 16시</b> 발표, 미당첨·미결제분은 <b>15일 9시</b>에 선착순으로 풀립니다.</p>
+            <p class="resv__detail resv__detail--note">추첨 대상 휴양림은 숲나들e 공지 기준으로 확정됩니다. 신청 전 확인하세요.</p>`;
   }
   if (f.예약 === 1) {
     return `<p class="resv__detail">이용일 6주 전 <b>수요일 오전 9시</b>에 선착순으로 열립니다. 추첨 대상이 아닙니다.</p>`;
   }
   if (f.예약 === 2) {
-    return `<p class="resv__detail">공립 휴양림은 지자체마다 정책이 다릅니다. 일부는 <b>월 추첨</b>이나 <b>지역주민 추첨</b>을 운영합니다.<br>`
-         + `정확한 방식과 오픈 시각은 아래 숲나들e 페이지에서 확인하세요.</p>`;
+    return `<p class="resv__detail">공립 휴양림은 지자체마다 정책이 다릅니다. 일부는 <b>월 추첨</b>이나 <b>지역주민 추첨</b>을 운영합니다.
+            정확한 방식과 오픈 시각은 아래 숲나들e 페이지에서 확인하세요.</p>`;
   }
   return `<p class="resv__detail">사립 휴양림은 휴양림별로 예약 방식이 다릅니다. 아래 페이지에서 확인하세요.</p>`;
+}
+
+/* ---- 공유 ---- */
+
+/* 공유한 링크가 그 휴양림을 바로 열어야 쓸모가 있다. 주소에 ?f=<휴양림id> 를 달아 두고
+   들어올 때 읽는다. 지도 키를 넣는 ?key= 와 겹치지 않게 기존 파라미터는 건드리지 않는다. */
+let 열린휴양림 = -1;
+
+function forestUrl(f) {
+  const u = new URL(location.href);
+  u.searchParams.set('f', f.id);
+  u.hash = '';
+  return u.toString();
+}
+
+function setUrlForest(f) {
+  const u = new URL(location.href);
+  if (f) u.searchParams.set('f', f.id);
+  else u.searchParams.delete('f');
+  history.replaceState(null, '', u.pathname + u.search);
+}
+
+let 라벨되돌리기 = null;
+function shareFeedback(text) {
+  clearTimeout(라벨되돌리기);
+  el.shareLabel.textContent = text;
+  라벨되돌리기 = setTimeout(() => { el.shareLabel.textContent = '공유'; }, 1800);
+}
+
+async function shareForest() {
+  if (열린휴양림 < 0) return;
+  const f = F[열린휴양림];
+  const url = forestUrl(f);
+  const text = `${f.이름} — 전국 자연휴양림 한눈에`;
+
+  // 휴대폰은 운영체제 공유 시트가 뜬다. 카카오톡도 거기서 고른다.
+  if (navigator.share) {
+    try {
+      await navigator.share({ title: f.이름, text, url });
+      return;
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;   // 사용자가 닫은 것뿐이다
+    }
+  }
+  if (await copyText(url)) {
+    shareFeedback('주소 복사됨');
+  } else {
+    // 복사가 다 막힌 환경에서는 주소창에라도 남겨 둔다
+    setUrlForest(f);
+    shareFeedback('주소창에서 복사하세요');
+  }
+}
+
+/** 클립보드 복사. 최신 API 가 막히면(권한 거부·비보안 출처) 옛 방식으로 한 번 더 시도한다. */
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch (e) { /* 아래 옛 방식으로 */ }
+
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.setAttribute('readonly', '');
+  ta.style.cssText = 'position:fixed;top:0;left:0;opacity:0;pointer-events:none';
+  document.body.appendChild(ta);
+  try {
+    ta.select();
+    ta.setSelectionRange(0, text.length);     // iOS 는 이게 있어야 선택된다
+    return document.execCommand('copy');
+  } catch (e) {
+    return false;
+  } finally {
+    ta.remove();
+  }
+}
+
+/** 주소에 ?f= 가 있으면 그 휴양림을 열어 준다. 없거나 못 찾으면 조용히 넘어간다. */
+function openFromUrl() {
+  const id = new URLSearchParams(location.search).get('f');
+  if (!id) return;
+  const i = F.findIndex((x) => x.id === id);
+  if (i >= 0) openSheet(i);
 }
 
 function openSheet(i) {
@@ -430,7 +538,8 @@ function openSheet(i) {
 
   // --- 예약 방식 ---
   el.sheetResv.innerHTML = `<p class="resv__head">예약 방식</p>`
-    + `<p class="resv__way">${esc(D.예약라벨[f.예약])}</p>` + resvDetail(f);
+    + `<p class="resv__way">${esc(D.예약라벨[f.예약])}</p>`
+    + resvNext(f) + resvDetail(f);
 
   el.sheetIntro.textContent = f.소개 || '';
   el.sheetIntro.hidden = !f.소개;
@@ -451,11 +560,17 @@ function openSheet(i) {
   if (f.전화) acts.push(`<a class="act" href="tel:${esc(f.전화.replace(/[^0-9]/g, ''))}">전화</a>`);
   el.sheetActs.innerHTML = acts.join('');
 
+  열린휴양림 = i;
+  setUrlForest(f);
   el.sheet.hidden = false;
   el.sheet.scrollTop = 0;
 }
 
-function closeSheet() { el.sheet.hidden = true; }
+function closeSheet() {
+  el.sheet.hidden = true;
+  열린휴양림 = -1;
+  setUrlForest(null);
+}
 
 /* ---------------- 지도 ---------------- */
 
@@ -719,6 +834,7 @@ function init() {
   });
 
   el.sheetClose.addEventListener('click', closeSheet);
+  el.sheetShare.addEventListener('click', shareForest);
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeSheet(); });
 
   el.tabList.addEventListener('click', () => setPane('list'));
@@ -758,6 +874,7 @@ function init() {
 
       search();
       measureControls();
+      openFromUrl();
       tryBootMap();
     })
     .catch(() => {

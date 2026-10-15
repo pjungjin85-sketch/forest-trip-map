@@ -5,7 +5,7 @@
 // 카카오 JavaScript 키. 브라우저에 노출되는 값이라 숨길 수 없고, 등록된 도메인
 // (pjungjin85-sketch.github.io)에서만 동작하므로 다른 사이트에 옮겨 써도 소용없다.
 // 지도 탭에서 새 키를 넣으면 그 값이 이 기본값을 덮는다.
-const KAKAO_KEY = 'a83ccf5d0f76a309473878b4530aa580';
+const KAKAO_KEY = 'dfc27d0d14376cea3f79476be7d2b23e';
 
 const PAGE = 40;                                   // 목록을 한 번에 그리는 개수
 const KOREA = { lat: 36.35, lng: 127.9 };          // 전국이 한 화면에 들어오는 중심

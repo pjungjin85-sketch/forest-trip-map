@@ -1310,8 +1310,7 @@ function paintFavs(id) {
 
 function renderAuth() {
   el.auth.innerHTML = me
-    ? `<span class="auth__name">${esc(me.nickname || '로그인됨')}</span>
-       <button class="auth__btn" id="logout" type="button">로그아웃</button>`
+    ? `<button class="auth__btn auth__btn--out" id="logout" type="button">로그아웃</button>`
     : `<a class="auth__btn auth__btn--kakao" href="/api/auth/login">카카오 로그인</a>`;
   el.auth.hidden = false;
   el.favChip.hidden = !me;

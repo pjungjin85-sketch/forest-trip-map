@@ -1317,24 +1317,37 @@ function renderAuth() {
   if (!me && filter.fav) { filter.fav = false; search(); }
 }
 
+/** 로그인은 우리 사이트 → 카카오 → 우리 사이트를 오가느라 몇 초 걸린다. 그사이 버튼이
+    그대로면 눌린 건지 알 수 없어 또 누르게 되므로, 그 자리에 '로그인 중…'을 띄워 둔다.
+    버튼을 누른 직후와, 카카오에서 돌아와 로그인을 확인하는 동안 두 번 쓴다. */
+function renderAuthBusy() {
+  el.auth.innerHTML = `<span class="auth__btn auth__btn--kakao is-busy" role="status">
+    <span class="auth__spin" aria-hidden="true"></span>로그인 중…</span>`;
+  el.auth.hidden = false;
+}
+
 /** 카카오에서 돌아오면 주소에 ?login=ok|fail|cancel 이 붙어 있다. 읽고 지운다. */
 function takeLoginResult() {
   const u = new URL(location.href);
   const r = u.searchParams.get('login');
-  if (!r) return;
+  if (!r) return null;
   u.searchParams.delete('login');
   history.replaceState(null, '', u.pathname + u.search);
   if (r === 'fail') alert('로그인하지 못했어요. 잠시 뒤 다시 시도해 주세요.');
+  return r;
 }
 
+/** 휴양림 자료(forests.json)와 따로, 페이지를 열자마자 부른다. 자료를 다 받은 뒤에
+    물어보면 그만큼 로그인 표시와 하트가 늦게 뜬다. 목록이 아직 없어도 괜찮다.
+    즐겨찾기를 먼저 받아 두면 목록을 그릴 때 하트가 채워진 채로 나온다. */
 async function loadMe() {
-  takeLoginResult();
+  if (takeLoginResult() === 'ok') renderAuthBusy();
   try {
     const r = await fetch('/api/me');
     // 정적 서버로만 띄웠을 때처럼 API 가 없으면 로그인 칸을 아예 보이지 않는다.
-    if (r.status !== 200 && r.status !== 401) return;
+    if (r.status !== 200 && r.status !== 401) { el.auth.hidden = true; return; }
     me = r.ok ? (await r.json()).user : null;
-  } catch (e) { return; }
+  } catch (e) { el.auth.hidden = true; return; }
   if (me) {
     try {
       const r = await fetch('/api/favorites');
@@ -1385,6 +1398,7 @@ async function logout() {
 function init() {
   startHero();
   renderSchedule();
+  loadMe();
 
   el.q.addEventListener('input', debounce(() => {
     filter.q = el.q.value.trim();
@@ -1457,7 +1471,15 @@ function init() {
     search();
   });
   el.auth.addEventListener('click', (e) => {
-    if (e.target.closest('#logout')) logout();
+    if (e.target.closest('#logout')) { logout(); return; }
+    const kakao = e.target.closest('a.auth__btn--kakao');
+    // 링크는 그대로 따라가게 두고, 화면만 '로그인 중…'으로 바꾼다. 바뀐 자리는 링크가
+    // 아니라서 다시 눌러도 요청이 또 나가지 않는다.
+    if (kakao && !e.metaKey && !e.ctrlKey && !e.shiftKey) renderAuthBusy();
+  });
+  // 카카오 화면에서 뒤로 가기로 돌아오면 브라우저가 '로그인 중…'인 채로 페이지를 되살린다.
+  window.addEventListener('pageshow', (e) => {
+    if (e.persisted && el.auth.querySelector('.is-busy')) renderAuth();
   });
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
@@ -1516,7 +1538,6 @@ function init() {
       search();
       measureControls();
       openFromUrl();
-      loadMe();
       tryBootMap();
     })
     .catch(() => {

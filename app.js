@@ -3,9 +3,10 @@
 'use strict';
 
 // 카카오 JavaScript 키. 브라우저에 노출되는 값이라 숨길 수 없고, 등록된 도메인
-// (pjungjin85-sketch.github.io)에서만 동작하므로 다른 사이트에 옮겨 써도 소용없다.
+// (forest-trip-map.vercel.app)에서만 동작하므로 다른 사이트에 옮겨 써도 소용없다.
 // 지도 탭에서 새 키를 넣으면 그 값이 이 기본값을 덮는다.
 const KAKAO_KEY = 'dfc27d0d14376cea3f79476be7d2b23e';
+const OLD_KAKAO_KEY = 'a83ccf5d0f76a309473878b4530aa580';   // 성남아동수당가맹점 앱과 같이 쓰던 키
 
 const PAGE = 40;                                   // 목록을 한 번에 그리는 개수
 const KOREA = { lat: 36.35, lng: 127.9 };          // 전국이 한 화면에 들어오는 중심
@@ -1128,7 +1129,12 @@ function bootMap(key) {
 
 function tryBootMap() {
   const fromUrl = new URLSearchParams(location.search).get('key');
-  const key = fromUrl || localStorage.getItem('kakaoKey') || KAKAO_KEY;
+  // 예전에는 기본 키도 localStorage 에 적어 뒀다. 앱을 바꾼 뒤에도 그 키가 남아 새 키를
+  // 덮지 않게, 예전 기본 키는 지운다. 직접 넣은 키만 저장해 두고 쓴다.
+  try { if (localStorage.getItem('kakaoKey') === OLD_KAKAO_KEY) localStorage.removeItem('kakaoKey'); } catch (e) { /* 무시 */ }
+  let saved = null;
+  try { saved = localStorage.getItem('kakaoKey'); } catch (e) { /* 사생활 보호 모드 */ }
+  const key = fromUrl || saved || KAKAO_KEY;
   el.originHint.textContent = location.origin;
   if (!key) return;
 
@@ -1138,7 +1144,7 @@ function tryBootMap() {
     });
     map.addControl(new kakao.maps.ZoomControl(), kakao.maps.ControlPosition.RIGHT);
     el.mapkey.hidden = true;
-    try { localStorage.setItem('kakaoKey', key); } catch (e) { /* 사파리 사생활 보호 모드 */ }
+    if (fromUrl) try { localStorage.setItem('kakaoKey', key); } catch (e) { /* 사파리 사생활 보호 모드 */ }
     refitNext = true;
     syncMarkers();
   }).catch(() => {

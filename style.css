@@ -87,7 +87,7 @@ svg{fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-lin
 .auth__btn:hover{filter:brightness(.95)}
 /* 카카오 로그인 버튼 색(#FEE500 바탕, 85% 검정 글씨)은 카카오 디자인 가이드를 따른다. */
 .auth__btn--kakao{background:#FEE500;color:rgba(0,0,0,.85)}
-.auth__btn--out{background:var(--heart);color:#fff}
+.auth__btn--out{background:#FF3B30;color:#fff}   /* 하트보다 밝고 선명한 빨강 */
 
 /* ---------- 예약 일정 ---------- */
 .sched{background:var(--forest-pale);border-bottom:1px solid var(--forest-line)}

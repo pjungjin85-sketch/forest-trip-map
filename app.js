@@ -5,8 +5,9 @@
 // 카카오 JavaScript 키. 브라우저에 노출되는 값이라 숨길 수 없고, 등록된 도메인
 // (forest-trip-map.vercel.app)에서만 동작하므로 다른 사이트에 옮겨 써도 소용없다.
 // 지도 탭에서 새 키를 넣으면 그 값이 이 기본값을 덮는다.
-const KAKAO_KEY = 'dfc27d0d14376cea3f79476be7d2b23e';
-const OLD_KAKAO_KEY = 'a83ccf5d0f76a309473878b4530aa580';   // 성남아동수당가맹점 앱과 같이 쓰던 키
+// 지도는 '성남아동수당가맹점' 앱의 키를 같이 쓴다. 카카오맵 무료 쿼터는 계정에서 처음 켠
+// 앱 하나에만 주어져서, 로그인용으로 따로 만든 '전국 자연휴양림 한눈에' 앱에서는 켤 수 없다.
+const KAKAO_KEY = 'a83ccf5d0f76a309473878b4530aa580';
 
 const PAGE = 40;                                   // 목록을 한 번에 그리는 개수
 const KOREA = { lat: 36.35, lng: 127.9 };          // 전국이 한 화면에 들어오는 중심
@@ -1129,9 +1130,8 @@ function bootMap(key) {
 
 function tryBootMap() {
   const fromUrl = new URLSearchParams(location.search).get('key');
-  // 예전에는 기본 키도 localStorage 에 적어 뒀다. 앱을 바꾼 뒤에도 그 키가 남아 새 키를
-  // 덮지 않게, 예전 기본 키는 지운다. 직접 넣은 키만 저장해 두고 쓴다.
-  try { if (localStorage.getItem('kakaoKey') === OLD_KAKAO_KEY) localStorage.removeItem('kakaoKey'); } catch (e) { /* 무시 */ }
+  // 기본 키는 저장하지 않는다. 저장해 두면 나중에 기본 키를 바꿔도 예전 키가 덮어쓴다.
+  // 지도 탭이나 ?key= 로 직접 넣은 키만 저장해 두고 쓴다.
   let saved = null;
   try { saved = localStorage.getItem('kakaoKey'); } catch (e) { /* 사생활 보호 모드 */ }
   const key = fromUrl || saved || KAKAO_KEY;
